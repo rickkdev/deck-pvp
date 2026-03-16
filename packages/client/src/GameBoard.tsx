@@ -313,7 +313,7 @@ const BattlefieldCanvas = forwardRef<
       });
 
       if (destroyed) {
-        app.destroy(true);
+        try { app.destroy(true); } catch { /* resize observer not ready */ }
         return;
       }
 
@@ -433,7 +433,11 @@ const BattlefieldCanvas = forwardRef<
       particlesRef.current = [];
       floatingTextsRef.current = [];
       if (appRef.current) {
-        appRef.current.destroy(true);
+        try {
+          appRef.current.destroy(true);
+        } catch {
+          // PixiJS v8 may throw if resize observer wasn't fully initialized
+        }
         appRef.current = null;
       }
     };
