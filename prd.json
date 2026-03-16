@@ -280,7 +280,7 @@
         "Commit all changes: 'feat: US-012 - Polish: sound effects, card art placeholders, and loading states' and push to origin"
       ],
       "priority": 12,
-      "passes": false,
+      "passes": true,
       "notes": "Last story - only do this after everything else works. Use CSS/SVG for card icons, no need for real art assets. Web Audio API for simple sound effects."
     }
   ]

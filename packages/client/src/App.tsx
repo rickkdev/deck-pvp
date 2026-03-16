@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ClassId, ClientGameState, GameStats } from "@deck-pvp/shared";
 import {
   connect,
@@ -12,6 +12,7 @@ import {
   onError,
   onWaitingForOpponent,
 } from "./socket";
+import { soundManager } from "./SoundManager";
 import LandingPage from "./LandingPage";
 import ClassSelection from "./ClassSelection";
 import GameBoard from "./GameBoard";
@@ -31,22 +32,41 @@ export default function App() {
   const [waitingForOpponent, setWaitingForOpponent] = useState(false);
   const [gameState, setGameState] = useState<ClientGameState | null>(null);
   const [gameOverData, setGameOverData] = useState<GameOverData | null>(null);
+  const [transitioning, setTransitioning] = useState(false);
+  const prevScreenRef = useRef<Screen>("landing");
+
+  // Smooth screen transition helper
+  const transitionTo = useCallback((next: Screen) => {
+    setTransitioning(true);
+    setTimeout(() => {
+      prevScreenRef.current = next;
+      setScreen(next);
+      setTransitioning(false);
+    }, 200);
+  }, []);
 
   useEffect(() => {
     const unsubs = [
       onMatchFound(() => {
         setSearching(false);
-        setScreen("class-select");
+        transitionTo("class-select");
       }),
       onGameState((state) => {
         setGameState(state);
         setWaitingForOpponent(false);
-        setScreen("game");
+        if (prevScreenRef.current !== "game") {
+          transitionTo("game");
+        } else {
+          setScreen("game");
+        }
       }),
       onGameOver(({ state, stats, disconnected }) => {
         setGameState(state);
         setGameOverData({ stats, disconnected });
         setScreen("game-over");
+        // Play victory/defeat sound
+        const isWinner = state.winner === state.you.id;
+        soundManager.play(isWinner ? 'victory' : 'defeat');
       }),
       onError(({ message }) => {
         console.error("[server error]", message);
@@ -76,37 +96,51 @@ export default function App() {
   }, []);
 
   const handlePlayAgain = useCallback(() => {
-    setGameState(null);
-    setGameOverData(null);
-    setSelectedClass(null);
-    setWaitingForOpponent(false);
-    setSearching(false);
-    setScreen("landing");
+    setTransitioning(true);
+    setTimeout(() => {
+      setGameState(null);
+      setGameOverData(null);
+      setSelectedClass(null);
+      setWaitingForOpponent(false);
+      setSearching(false);
+      prevScreenRef.current = "landing";
+      setScreen("landing");
+      setTransitioning(false);
+    }, 200);
   }, []);
 
   const handleHome = useCallback(() => {
     disconnect();
-    setGameState(null);
-    setGameOverData(null);
-    setSelectedClass(null);
-    setWaitingForOpponent(false);
-    setSearching(false);
-    setScreen("landing");
+    setTransitioning(true);
+    setTimeout(() => {
+      setGameState(null);
+      setGameOverData(null);
+      setSelectedClass(null);
+      setWaitingForOpponent(false);
+      setSearching(false);
+      prevScreenRef.current = "landing";
+      setScreen("landing");
+      setTransitioning(false);
+    }, 200);
   }, []);
+
+  const transitionClass = transitioning ? "opacity-0 scale-[0.98]" : "opacity-100 scale-100";
 
   if (screen === "class-select") {
     return (
-      <ClassSelection
-        onSelectClass={handleSelectClass}
-        waitingForOpponent={waitingForOpponent}
-        selectedClass={selectedClass}
-      />
+      <div className={`transition-all duration-200 ease-out ${transitionClass}`}>
+        <ClassSelection
+          onSelectClass={handleSelectClass}
+          waitingForOpponent={waitingForOpponent}
+          selectedClass={selectedClass}
+        />
+      </div>
     );
   }
 
   if ((screen === "game" || screen === "game-over") && gameState) {
     return (
-      <>
+      <div className={`transition-all duration-200 ease-out ${transitionClass}`}>
         <GameBoard gameState={gameState} />
         {screen === "game-over" && gameOverData && (
           <GameOverScreen
@@ -117,9 +151,13 @@ export default function App() {
             onHome={handleHome}
           />
         )}
-      </>
+      </div>
     );
   }
 
-  return <LandingPage onPlayPvP={handlePlayPvP} onPlayVsAI={handlePlayVsAI} searching={searching} />;
+  return (
+    <div className={`transition-all duration-200 ease-out ${transitionClass}`}>
+      <LandingPage onPlayPvP={handlePlayPvP} onPlayVsAI={handlePlayVsAI} searching={searching} />
+    </div>
+  );
 }

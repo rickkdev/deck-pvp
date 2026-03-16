@@ -9,6 +9,7 @@ import {
 import { Application, Graphics, Container, Text, TextStyle } from "pixi.js";
 import type { Card, CardType, ClassId, ClientGameState, TurnEvent } from "@deck-pvp/shared";
 import { playCard as emitPlayCard, endTurn as emitEndTurn } from "./socket";
+import { soundManager } from "./SoundManager";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -321,12 +322,31 @@ const BattlefieldCanvas = forwardRef<
       const w = app.screen.width;
       const h = app.screen.height;
 
-      // Battlefield background
+      // Battlefield background with radial gradient feel
       const bg = new Graphics();
       bg.rect(0, 0, w, h).fill(0x0a0a1a);
-      bg.moveTo(w / 2, 0).lineTo(w / 2, h).stroke({ width: 1, color: 0x1a1a3a });
-      bg.moveTo(0, h / 2).lineTo(w, h / 2).stroke({ width: 1, color: 0x1a1a3a });
+
+      // Subtle radial glow in center
+      const centerGlow = new Graphics();
+      centerGlow.circle(w / 2, h / 2, Math.max(w, h) * 0.4).fill({ color: 0x1a1030, alpha: 0.6 });
       app.stage.addChild(bg);
+      app.stage.addChild(centerGlow);
+
+      // Grid lines
+      const gridSpacing = 60;
+      const grid = new Graphics();
+      for (let x = gridSpacing; x < w; x += gridSpacing) {
+        grid.moveTo(x, 0).lineTo(x, h).stroke({ width: 1, color: 0x12122a, alpha: 0.5 });
+      }
+      for (let y = gridSpacing; y < h; y += gridSpacing) {
+        grid.moveTo(0, y).lineTo(w, y).stroke({ width: 1, color: 0x12122a, alpha: 0.5 });
+      }
+      app.stage.addChild(grid);
+
+      // Center divider line
+      const divider = new Graphics();
+      divider.moveTo(w / 2, 0).lineTo(w / 2, h).stroke({ width: 1, color: 0x1a1a3a });
+      app.stage.addChild(divider);
 
       // Ground line
       const ground = new Graphics();
@@ -564,6 +584,105 @@ function StatusEffects({
   );
 }
 
+// ── Card Icon SVGs ──────────────────────────────────────────────────────────
+
+const CARD_ICONS: Record<string, (color: string) => React.ReactNode> = {
+  // Warrior
+  'warrior-strike': (c) => (
+    <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke={c} strokeWidth="2">
+      <path d="M14.5 2l-5 5 7 7-5 5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M3 21l7-7" strokeLinecap="round" />
+    </svg>
+  ),
+  'warrior-defend': (c) => (
+    <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke={c} strokeWidth="2">
+      <path d="M12 3l8 4v5c0 5-3.5 9.5-8 11-4.5-1.5-8-6-8-11V7l8-4z" />
+    </svg>
+  ),
+  'warrior-bash': (c) => (
+    <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke={c} strokeWidth="2">
+      <circle cx="12" cy="8" r="5" />
+      <path d="M12 13v8M8 17h8" strokeLinecap="round" />
+    </svg>
+  ),
+  // Rogue
+  'rogue-shiv-strike': (c) => (
+    <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke={c} strokeWidth="2">
+      <path d="M6 18L18 6M15 6h3v3" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
+  'rogue-defend': (c) => (
+    <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke={c} strokeWidth="2">
+      <path d="M12 3l8 4v5c0 5-3.5 9.5-8 11-4.5-1.5-8-6-8-11V7l8-4z" />
+    </svg>
+  ),
+  'rogue-poison-blade': (c) => (
+    <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke={c} strokeWidth="2">
+      <path d="M12 2v10M8 8l4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="12" cy="18" r="4" />
+      <path d="M12 16v4" strokeLinecap="round" />
+    </svg>
+  ),
+  'rogue-dodge': (c) => (
+    <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke={c} strokeWidth="2">
+      <path d="M5 12h14M16 8l4 4-4 4" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M5 8l-2 4 2 4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
+  // Mage
+  'mage-arcane-bolt': (c) => (
+    <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke={c} strokeWidth="2">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M12 2v4M12 18v4M2 12h4M18 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M5.6 18.4l2.8-2.8M15.6 8.4l2.8-2.8" strokeLinecap="round" />
+    </svg>
+  ),
+  'mage-barrier': (c) => (
+    <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke={c} strokeWidth="2">
+      <path d="M12 3l8 4v5c0 5-3.5 9.5-8 11-4.5-1.5-8-6-8-11V7l8-4z" />
+      <circle cx="12" cy="11" r="3" />
+    </svg>
+  ),
+  'mage-channel-lightning': (c) => (
+    <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke={c} strokeWidth="2">
+      <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" strokeLinejoin="round" />
+    </svg>
+  ),
+  'mage-frost-shield': (c) => (
+    <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke={c} strokeWidth="2">
+      <path d="M12 2v20M2 12h20M5.6 5.6l12.8 12.8M18.4 5.6L5.6 18.4" strokeLinecap="round" />
+    </svg>
+  ),
+  'mage-surge': (c) => (
+    <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke={c} strokeWidth="2">
+      <path d="M4 12h2l3-8 4 16 3-8h4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
+};
+
+const CARD_ICON_COLORS: Record<string, string> = {
+  attack: '#f87171',
+  skill: '#60a5fa',
+  power: '#fbbf24',
+};
+
+function CardIcon({ card }: { card: Card }) {
+  // Get base card id (strip instance suffix like "-0", "-1")
+  const baseId = card.id.replace(/-\d+$/, '');
+  const iconFn = CARD_ICONS[baseId];
+  const color = CARD_ICON_COLORS[card.type] ?? '#9ca3af';
+
+  if (!iconFn) {
+    // Fallback: generic type icon
+    return (
+      <div className="w-6 h-6 flex items-center justify-center text-xs font-bold opacity-60" style={{ color }}>
+        {card.type === 'attack' ? '⚔' : card.type === 'skill' ? '✦' : '★'}
+      </div>
+    );
+  }
+
+  return <>{iconFn(color)}</>;
+}
+
 // ── Card Component ──────────────────────────────────────────────────────────
 
 function CardInHand({
@@ -630,6 +749,11 @@ function CardInHand({
           <span className="text-[9px] text-gray-400 uppercase tracking-wider">
             {CARD_TYPE_LABELS[card.type]}
           </span>
+        </div>
+
+        {/* Card icon */}
+        <div className="flex justify-center mb-1 opacity-80">
+          <CardIcon card={card} />
         </div>
 
         {/* Card name */}
@@ -742,6 +866,7 @@ export default function GameBoard({ gameState }: GameBoardProps) {
     cardType: CardType;
   } | null>(null);
   const processedTurnEventsRef = useRef<number>(0);
+  const [isMuted, setIsMuted] = useState(soundManager.muted);
 
   // Animate opponent's actions from lastAction
   useEffect(() => {
@@ -760,6 +885,15 @@ export default function GameBoard({ gameState }: GameBoardProps) {
     setOpponentPlayedCard({ cardName: action.cardName, cardType: action.cardType });
     setTimeout(() => setOpponentPlayedCard(null), 800);
 
+    // Sound: opponent plays card
+    soundManager.play('cardPlay');
+    if (action.damageDealt > 0) {
+      setTimeout(() => soundManager.play('damage'), 200);
+    }
+    if (action.blockGained > 0) {
+      setTimeout(() => soundManager.play('block'), 100);
+    }
+
     triggerCardAnimation(
       battlefieldRef,
       action.cardType,
@@ -774,6 +908,9 @@ export default function GameBoard({ gameState }: GameBoardProps) {
   useEffect(() => {
     if (turnNumber === prevTurnRef.current) return;
     prevTurnRef.current = turnNumber;
+
+    // Sound: turn start
+    soundManager.play('turnStart');
 
     // Process turn events (poison tick, orb effects) with staggered delays
     const events = gameState.turnEvents || [];
@@ -821,6 +958,9 @@ export default function GameBoard({ gameState }: GameBoardProps) {
       // Set playing animation state
       setPlayingCardId(cardId);
 
+      // Sound: card play
+      soundManager.play('cardPlay');
+
       // Compute approximate damage/block for animation
       const damage = card.effects
         .filter((e) => e.type === "damage")
@@ -843,6 +983,8 @@ export default function GameBoard({ gameState }: GameBoardProps) {
           damage,
           block,
         );
+        if (damage > 0) setTimeout(() => soundManager.play('damage'), 200);
+        if (block > 0) setTimeout(() => soundManager.play('block'), 100);
       }, 150);
 
       // Emit to server
@@ -899,6 +1041,24 @@ export default function GameBoard({ gameState }: GameBoardProps) {
             <span className="text-xs text-gray-500 font-mono">
               Disc: {opponent.discardPileCount}
             </span>
+            <button
+              onClick={() => setIsMuted(soundManager.toggleMute())}
+              className="w-7 h-7 flex items-center justify-center rounded bg-gray-800/80 hover:bg-gray-700 text-gray-400 hover:text-white transition-colors cursor-pointer border border-gray-700"
+              title={isMuted ? 'Unmute' : 'Mute'}
+            >
+              {isMuted ? (
+                <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M11 5L6 9H2v6h4l5 4V5z" strokeLinejoin="round" />
+                  <line x1="23" y1="9" x2="17" y2="15" strokeLinecap="round" />
+                  <line x1="17" y1="9" x2="23" y2="15" strokeLinecap="round" />
+                </svg>
+              ) : (
+                <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M11 5L6 9H2v6h4l5 4V5z" strokeLinejoin="round" />
+                  <path d="M19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07" strokeLinecap="round" />
+                </svg>
+              )}
+            </button>
           </div>
         </div>
 

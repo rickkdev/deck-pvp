@@ -28,6 +28,8 @@ Started: Mon Mar 16 2026
 - Client socket wrapper is in `packages/client/src/socket.ts` — functions return unsubscribe callbacks for React cleanup
 - Server tracks player→game mapping in `playerGames` Map and handles disconnect cleanup (awards win to remaining player)
 - Class-specific HP values are in GameEngine's `CLASS_HP` constant (warrior=75, rogue=65, mage=60)
+- Sound effects: `soundManager.play('cardPlay'|'damage'|'block'|'turnStart'|'victory'|'defeat')` — singleton in `SoundManager.ts`
+- Card icon SVGs: `CARD_ICONS` map in GameBoard.tsx keyed by base card ID (strip `-\d+$` suffix from instance IDs)
 - GameEngine tracks per-player stats in a separate `stats` Map — access via `engine.getStats(gameId)`
 - Game-over overlay pattern: render as `fixed inset-0 z-50` on top of the GameBoard (board stays visible with backdrop blur)
 
@@ -219,4 +221,22 @@ Started: Mon Mar 16 2026
   - `maybeRunAITurn()` is called after human end-turn to trigger AI's async turn
   - AI turn is fully async — plays cards in a loop with 500ms delays, then ends turn
   - On disconnect from AI game, just mark winner as 'disconnected' and clean up (no opponent to notify)
+---
+
+## 2026-03-16 - US-012
+- Implemented sound effects using Web Audio API (SoundManager.ts): card play (ascending tones), damage (noise+sawtooth), block (rising pings), turn start (ascending triad), victory (major arpeggio), defeat (descending tones)
+- Added placeholder card icon SVGs per card type and class (sword, shield, dagger, bolt, lightning, frost, etc.)
+- Smooth page transitions between all screens (200ms opacity+scale CSS transition)
+- Enhanced battlefield background with radial center glow, grid pattern (60px spacing), and center divider
+- Volume toggle button in top-right corner of game board (mute/unmute with speaker SVG icons)
+- Loading spinner already existed from US-006; no changes needed
+- Files changed: packages/client/src/SoundManager.ts (new), packages/client/src/GameBoard.tsx, packages/client/src/App.tsx, prd.json
+- **Learnings for future iterations:**
+  - Web Audio API: `AudioContext` must be created/resumed after user gesture (browsers block autoplay); lazy-init pattern in SoundManager handles this
+  - `OscillatorNode.stop()` needs to be called slightly after the gain envelope ends to avoid clicks
+  - Noise generation: create a `AudioBuffer` with random samples, filter with `BiquadFilter` (lowpass) for softer impact sounds
+  - SVG card icons: use `viewBox="0 0 24 24"` with stroke-based paths for crisp rendering at small sizes; pass color as prop for type-based coloring
+  - Card IDs have instance suffixes (e.g., `warrior-strike-0`); strip with `id.replace(/-\d+$/, '')` to match base card definitions
+  - Page transitions: wrap screen content in a `div` with `transition-all duration-200`, toggle `opacity-0 scale-[0.98]` class, delay state change by 200ms
+  - PixiJS `Graphics.circle()` with low-alpha fill creates a soft glow/gradient effect for background enhancement
 ---
