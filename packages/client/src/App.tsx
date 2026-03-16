@@ -49,6 +49,7 @@ export default function App() {
     const unsubs = [
       onMatchFound(() => {
         setSearching(false);
+        setWaitingForOpponent(false);
         transitionTo("class-select");
       }),
       onGameState((state) => {
