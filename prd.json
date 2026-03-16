@@ -138,7 +138,7 @@
         "Commit all changes: 'feat: US-005 - Socket.io real-time communication layer' and push to origin"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "Server is authoritative. Client sends actions, server validates and broadcasts state. Opponent's hand cards should be sent as count only, not actual card data."
     },
     {

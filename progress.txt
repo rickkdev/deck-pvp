@@ -14,6 +14,10 @@ Started: Mon Mar 16 2026
 - GameEngine is the authoritative game logic class in `packages/server/src/GameEngine.ts`
 - GameEngine stores games in a Map keyed by gameId — use `engine.getGame(id)` to retrieve
 - Server tests use vitest — run with `pnpm --filter @deck-pvp/server test`
+- Socket event types (`ClientToServerEvents`, `ServerToClientEvents`) are in shared types — use for typed Socket.io on both client and server
+- `ClientGameState` is the sanitized game state sent to each player (opponent hand hidden, only counts sent)
+- Client socket wrapper is in `packages/client/src/socket.ts` — functions return unsubscribe callbacks for React cleanup
+- Server tracks player→game mapping in `playerGames` Map and handles disconnect cleanup (awards win to remaining player)
 - Class-specific HP values are in GameEngine's `CLASS_HP` constant (warrior=75, rogue=65, mage=60)
 
 ---
@@ -76,4 +80,20 @@ Started: Mon Mar 16 2026
   - vitest works out of the box with TypeScript ESM (no config needed for server package)
   - Player's initial hand from createGame persists into their first turn — endTurn only discards the *current* player's hand, not the next player's
   - Class-specific HP: warrior=75, rogue=65, mage=60 (defined in GameEngine, not shared config)
+---
+
+## 2026-03-16 - US-005
+- Implemented Socket.io real-time communication layer
+- Added shared socket event types: `ClientToServerEvents`, `ServerToClientEvents`, `ClientGameState`
+- Server handles: matchmaking queue, class selection, game creation via GameEngine, play-card, end-turn, disconnect cleanup
+- Each player receives sanitized game state (opponent hand hidden — only count sent)
+- Client socket wrapper with typed event handlers and unsubscribe pattern
+- Files changed: packages/shared/src/types.ts, packages/server/src/index.ts, packages/client/src/socket.ts (new)
+- **Learnings for future iterations:**
+  - Socket.io `Server<ClientEvents, ServerEvents>` generic typing gives full type safety on both emit and on
+  - `sanitizeGameState()` creates per-player views — never send raw GameState to clients
+  - Matchmaking uses simple queue (single waiting player) — paired on second `find-match` event
+  - `pendingMatches` Map tracks class selection phase before game creation
+  - `playerGames` Map tracks socket→game mapping for card play/turn events and disconnect handling
+  - Disconnect during active game awards win to remaining player
 ---

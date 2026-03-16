@@ -63,3 +63,48 @@ export interface GameState {
   turnNumber: number;
   winner: string | null; // player id of the winner, null if game ongoing
 }
+
+// ── Socket Event Types ──────────────────────────────────────────────────────
+
+/** Game state sanitized for a specific player (opponent hand hidden) */
+export interface ClientGameState {
+  id: string;
+  you: PlayerState;
+  opponent: {
+    id: string;
+    name: string;
+    class: ClassId;
+    hp: number;
+    maxHp: number;
+    energy: number;
+    maxEnergy: number;
+    block: number;
+    strength: number;
+    poison: number;
+    orbs: Orb[];
+    handCount: number;
+    drawPileCount: number;
+    discardPileCount: number;
+  };
+  currentTurn: string;
+  turnPhase: TurnPhase;
+  turnNumber: number;
+  winner: string | null;
+}
+
+/** Events emitted from client to server */
+export interface ClientToServerEvents {
+  'find-match': () => void;
+  'select-class': (classId: ClassId) => void;
+  'play-card': (cardId: string) => void;
+  'end-turn': () => void;
+}
+
+/** Events emitted from server to client */
+export interface ServerToClientEvents {
+  'match-found': (data: { gameId: string }) => void;
+  'game-state': (state: ClientGameState) => void;
+  'game-over': (data: { winner: string; state: ClientGameState }) => void;
+  'error': (data: { message: string }) => void;
+  'waiting-for-opponent': () => void;
+}
