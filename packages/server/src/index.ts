@@ -6,6 +6,7 @@ import {
   type ClassId,
   type ClientGameState,
   type ClientToServerEvents,
+  type GameStats,
   type GameState,
   type PlayerState,
   type ServerToClientEvents,
@@ -83,11 +84,20 @@ function emitGameState(state: GameState): void {
   }
 }
 
-function emitGameOver(state: GameState): void {
+function emitGameOver(state: GameState, disconnected?: boolean): void {
+  const statsMap = engine.getStats(state.id);
+  const defaultStats: GameStats = { damageDealt: 0, cardsPlayed: 0, turnsTaken: 0 };
+
   for (const player of state.players) {
+    const opp = state.players.find((p) => p.id !== player.id)!;
     io.to(player.id).emit("game-over", {
       winner: state.winner!,
       state: sanitizeGameState(state, player.id),
+      stats: {
+        you: statsMap?.get(player.id) ?? defaultStats,
+        opponent: statsMap?.get(opp.id) ?? defaultStats,
+      },
+      ...(disconnected ? { disconnected: true } : {}),
     });
   }
 }
@@ -118,7 +128,7 @@ function cleanupPlayer(socketId: string): void {
       const winner = state.players.find((p) => p.id !== socketId);
       if (winner) {
         state.winner = winner.id;
-        emitGameOver(state);
+        emitGameOver(state, true);
       }
     }
     playerGames.delete(socketId);
@@ -138,6 +148,9 @@ io.on("connection", (socket: Socket<ClientToServerEvents, ServerToClientEvents>)
 
   // ── Find Match ──────────────────────────────────────────────────────────
   socket.on("find-match", () => {
+    // Clean up any previous game (e.g., rematch after game over)
+    playerGames.delete(socket.id);
+
     if (matchmakingQueue === null) {
       matchmakingQueue = socket.id;
       socket.emit("waiting-for-opponent");

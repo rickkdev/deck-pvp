@@ -2,6 +2,7 @@ import {
   type Card,
   type ClassId,
   type GameState,
+  type GameStats,
   type LastAction,
   type PlayerState,
   type TurnEvent,
@@ -30,6 +31,7 @@ function cloneDeck(deck: Card[]): Card[] {
 
 export class GameEngine {
   private games = new Map<string, GameState>();
+  private stats = new Map<string, Map<string, GameStats>>();
 
   createGame(
     player1: { id: string; name: string; class: ClassId },
@@ -56,11 +58,22 @@ export class GameEngine {
     this.drawCards(p2, GAME_CONFIG.CARDS_DRAWN_PER_TURN);
 
     this.games.set(gameId, state);
+
+    // Initialize stats tracking
+    const gameStats = new Map<string, GameStats>();
+    gameStats.set(p1.id, { damageDealt: 0, cardsPlayed: 0, turnsTaken: 0 });
+    gameStats.set(p2.id, { damageDealt: 0, cardsPlayed: 0, turnsTaken: 0 });
+    this.stats.set(gameId, gameStats);
+
     return state;
   }
 
   getGame(gameId: string): GameState | undefined {
     return this.games.get(gameId);
+  }
+
+  getStats(gameId: string): Map<string, GameStats> | undefined {
+    return this.stats.get(gameId);
   }
 
   playCard(gameId: string, playerId: string, cardId: string): GameState {
@@ -131,6 +144,14 @@ export class GameEngine {
     // Add to discard pile
     player.discardPile.push(card);
 
+    // Update stats
+    const gameStats = this.stats.get(gameId);
+    if (gameStats) {
+      const playerStats = gameStats.get(playerId)!;
+      playerStats.cardsPlayed++;
+      playerStats.damageDealt += totalDamageDealt;
+    }
+
     // Record the action for animation
     state.lastAction = {
       playerId,
@@ -172,6 +193,12 @@ export class GameEngine {
     if (this.checkWin(state)) {
       state.turnEvents = events;
       return state;
+    }
+
+    // Track turns taken
+    const gameStats = this.stats.get(gameId);
+    if (gameStats) {
+      gameStats.get(playerId)!.turnsTaken++;
     }
 
     // Discard remaining hand

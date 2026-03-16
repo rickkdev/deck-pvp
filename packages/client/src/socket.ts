@@ -3,6 +3,7 @@ import type {
   ClassId,
   ClientGameState,
   ClientToServerEvents,
+  GameStats,
   ServerToClientEvents,
 } from "@deck-pvp/shared";
 
@@ -72,7 +73,7 @@ export function onGameState(callback: (state: ClientGameState) => void): () => v
   return () => { s.off("game-state", callback); };
 }
 
-export function onGameOver(callback: (data: { winner: string; state: ClientGameState }) => void): () => void {
+export function onGameOver(callback: (data: { winner: string; state: ClientGameState; stats: { you: GameStats; opponent: GameStats }; disconnected?: boolean }) => void): () => void {
   const s = getSocket();
   s.on("game-over", callback);
   return () => { s.off("game-over", callback); };

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import type { ClassId, ClientGameState } from "@deck-pvp/shared";
+import type { ClassId, ClientGameState, GameStats } from "@deck-pvp/shared";
 import {
   connect,
+  disconnect,
   findMatch,
   selectClass,
   onMatchFound,
@@ -13,8 +14,14 @@ import {
 import LandingPage from "./LandingPage";
 import ClassSelection from "./ClassSelection";
 import GameBoard from "./GameBoard";
+import GameOverScreen from "./GameOverScreen";
 
-type Screen = "landing" | "class-select" | "game";
+type Screen = "landing" | "class-select" | "game" | "game-over";
+
+interface GameOverData {
+  stats: { you: GameStats; opponent: GameStats };
+  disconnected?: boolean;
+}
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>("landing");
@@ -22,6 +29,7 @@ export default function App() {
   const [selectedClass, setSelectedClass] = useState<ClassId | null>(null);
   const [waitingForOpponent, setWaitingForOpponent] = useState(false);
   const [gameState, setGameState] = useState<ClientGameState | null>(null);
+  const [gameOverData, setGameOverData] = useState<GameOverData | null>(null);
 
   useEffect(() => {
     const unsubs = [
@@ -34,8 +42,10 @@ export default function App() {
         setWaitingForOpponent(false);
         setScreen("game");
       }),
-      onGameOver(({ state }) => {
+      onGameOver(({ state, stats, disconnected }) => {
         setGameState(state);
+        setGameOverData({ stats, disconnected });
+        setScreen("game-over");
       }),
       onError(({ message }) => {
         console.error("[server error]", message);
@@ -59,6 +69,26 @@ export default function App() {
     selectClass(classId);
   }, []);
 
+  const handlePlayAgain = useCallback(() => {
+    setGameState(null);
+    setGameOverData(null);
+    setSelectedClass(null);
+    setWaitingForOpponent(false);
+    setSearching(true);
+    setScreen("landing");
+    findMatch();
+  }, []);
+
+  const handleHome = useCallback(() => {
+    disconnect();
+    setGameState(null);
+    setGameOverData(null);
+    setSelectedClass(null);
+    setWaitingForOpponent(false);
+    setSearching(false);
+    setScreen("landing");
+  }, []);
+
   if (screen === "class-select") {
     return (
       <ClassSelection
@@ -69,8 +99,21 @@ export default function App() {
     );
   }
 
-  if (screen === "game" && gameState) {
-    return <GameBoard gameState={gameState} />;
+  if ((screen === "game" || screen === "game-over") && gameState) {
+    return (
+      <>
+        <GameBoard gameState={gameState} />
+        {screen === "game-over" && gameOverData && (
+          <GameOverScreen
+            gameState={gameState}
+            stats={gameOverData.stats}
+            disconnected={gameOverData.disconnected}
+            onPlayAgain={handlePlayAgain}
+            onHome={handleHome}
+          />
+        )}
+      </>
+    );
   }
 
   return <LandingPage onPlayNow={handlePlayNow} searching={searching} />;

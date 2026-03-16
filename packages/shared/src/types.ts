@@ -87,6 +87,14 @@ export interface GameState {
   turnEvents: TurnEvent[];
 }
 
+// ── Game Stats ──────────────────────────────────────────────────────────────
+
+export interface GameStats {
+  damageDealt: number;
+  cardsPlayed: number;
+  turnsTaken: number;
+}
+
 // ── Socket Event Types ──────────────────────────────────────────────────────
 
 /** Game state sanitized for a specific player (opponent hand hidden) */
@@ -129,7 +137,7 @@ export interface ClientToServerEvents {
 export interface ServerToClientEvents {
   'match-found': (data: { gameId: string }) => void;
   'game-state': (state: ClientGameState) => void;
-  'game-over': (data: { winner: string; state: ClientGameState }) => void;
+  'game-over': (data: { winner: string; state: ClientGameState; stats: { you: GameStats; opponent: GameStats }; disconnected?: boolean }) => void;
   'error': (data: { message: string }) => void;
   'waiting-for-opponent': () => void;
 }
