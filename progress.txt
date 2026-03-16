@@ -11,6 +11,10 @@ Started: Mon Mar 16 2026
 - TypeScript strict mode is enabled via `tsconfig.base.json` at root
 - Root `pnpm dev` starts client and server concurrently with `--parallel -r`
 - Client on port 5173, server on port 3001
+- GameEngine is the authoritative game logic class in `packages/server/src/GameEngine.ts`
+- GameEngine stores games in a Map keyed by gameId — use `engine.getGame(id)` to retrieve
+- Server tests use vitest — run with `pnpm --filter @deck-pvp/server test`
+- Class-specific HP values are in GameEngine's `CLASS_HP` constant (warrior=75, rogue=65, mage=60)
 
 ---
 
@@ -54,4 +58,22 @@ Started: Mon Mar 16 2026
   - Card definitions reference card objects by variable, so duplicate cards in a deck point to the same object — future GameEngine should clone cards when building a player's deck
   - `STARTER_DECKS` is keyed by ClassId string for easy lookup: `STARTER_DECKS[classId]`
   - Mage orb mechanic uses `orbType` optional field on Effect — only present when `type: 'channel'`
+---
+
+## 2026-03-16 - US-004
+- Implemented GameEngine class in `packages/server/src/GameEngine.ts`
+- Added `Orb` interface and `orbs: Orb[]` field to `PlayerState` in shared types
+- GameEngine methods: `createGame`, `playCard`, `endTurn`, `getGame`
+- Effect resolution: damage (with block absorption), block, strength (adds to attack damage), poison (ticks at start of turn), draw, energy, channel (orbs)
+- Mage orbs: lightning deals 3 damage at end of turn, frost gives 3 block at start of turn
+- Win detection on HP reaching 0 (from attacks, poison, or lightning orbs)
+- Draw pile reshuffles from discard when empty
+- 21 unit tests covering all acceptance criteria (vitest)
+- Files changed: packages/shared/src/types.ts, packages/server/src/GameEngine.ts (new), packages/server/src/GameEngine.test.ts (new), packages/server/package.json
+- **Learnings for future iterations:**
+  - Cards are cloned with unique IDs (`{cardId}-{index}`) when building player decks so duplicate cards can be distinguished
+  - `crypto.randomUUID()` works in Node.js 18+ without imports
+  - vitest works out of the box with TypeScript ESM (no config needed for server package)
+  - Player's initial hand from createGame persists into their first turn — endTurn only discards the *current* player's hand, not the next player's
+  - Class-specific HP: warrior=75, rogue=65, mage=60 (defined in GameEngine, not shared config)
 ---

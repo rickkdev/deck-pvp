@@ -117,7 +117,7 @@
         "Commit all changes: 'feat: US-004 - Server-side game engine' and push to origin"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "This is the authoritative game logic. Client will display state received from server. Never trust client-computed game state."
     },
     {

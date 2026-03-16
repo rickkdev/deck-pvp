@@ -34,6 +34,10 @@ export interface Card {
 
 export type TurnPhase = 'draw' | 'action' | 'end' | 'waiting';
 
+export interface Orb {
+  type: OrbType;
+}
+
 export interface PlayerState {
   id: string;
   name: string;
@@ -45,6 +49,7 @@ export interface PlayerState {
   block: number;
   strength: number;
   poison: number;
+  orbs: Orb[];
   hand: Card[];
   drawPile: Card[];
   discardPile: Card[];
