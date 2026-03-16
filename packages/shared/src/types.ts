@@ -30,6 +30,17 @@ export interface Card {
   rarity: CardRarity;
 }
 
+// ── Action Tracking ─────────────────────────────────────────────────────────
+
+export interface LastAction {
+  playerId: string;
+  cardName: string;
+  cardType: CardType;
+  cardClass: ClassId;
+  damageDealt: number;
+  blockGained: number;
+}
+
 // ── Player & Game State ─────────────────────────────────────────────────────
 
 export type TurnPhase = 'draw' | 'action' | 'end' | 'waiting';
@@ -62,6 +73,7 @@ export interface GameState {
   turnPhase: TurnPhase;
   turnNumber: number;
   winner: string | null; // player id of the winner, null if game ongoing
+  lastAction: LastAction | null;
 }
 
 // ── Socket Event Types ──────────────────────────────────────────────────────
@@ -90,6 +102,7 @@ export interface ClientGameState {
   turnPhase: TurnPhase;
   turnNumber: number;
   winner: string | null;
+  lastAction: LastAction | null;
 }
 
 /** Events emitted from client to server */

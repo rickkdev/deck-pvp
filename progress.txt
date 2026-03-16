@@ -12,6 +12,10 @@ Started: Mon Mar 16 2026
 - Root `pnpm dev` starts client and server concurrently with `--parallel -r`
 - Client on port 5173, server on port 3001
 - GameBoard uses layered architecture: PixiJS canvas (absolute, bottom) + React HUD overlay (absolute, top with pointer-events-none/auto)
+- BattlefieldCanvas exposes animation methods via `forwardRef` + `useImperativeHandle` (animateAttack, animateBlock, animateBuff)
+- Manual particle system: array of `{gfx, vx, vy, life, maxLife}` objects updated each frame in the main ticker loop
+- `lastAction` field on GameState/ClientGameState tracks the most recent card play for opponent animation sync
+- Card play animation CSS: `isPlaying` prop triggers translate-y + scale + opacity transition on the React card element
 - PixiJS v8 `Application.init()` is async — use a `destroyed` flag to handle unmount-during-init cleanup
 - GameEngine is the authoritative game logic class in `packages/server/src/GameEngine.ts`
 - GameEngine stores games in a Map keyed by gameId — use `engine.getGame(id)` to retrieve
@@ -130,4 +134,27 @@ Started: Mon Mar 16 2026
   - `pointer-events-none` on HUD container + `pointer-events-auto` on interactive children allows clicks to pass through to canvas where needed
   - Character shapes are drawn with `Graphics` — warrior=rect, rogue=triangle (moveTo/lineTo/closePath), mage=circle
   - Cards use `flex-shrink-0` to prevent compression in the hand layout
+---
+
+## 2026-03-16 - US-008
+- Implemented card playing interaction with PixiJS attack animations and particle effects
+- Attack cards: player character lunges toward opponent (200ms ease-out), burst particles on impact (class-colored), floating red damage numbers, character returns (200ms ease-in)
+- Skill/Block cards: shield shimmer particles (blue) around caster, floating blue block numbers
+- Power cards: rising golden particles around caster
+- Card play CSS animation: card translates up, scales down, and fades out on play (300ms)
+- Unplayable cards dimmed/grayed, 0-energy cards highlighted with glow (carried over from US-007)
+- Added `LastAction` type to shared types for opponent animation sync
+- GameEngine tracks `lastAction` (cardName, cardType, cardClass, damageDealt, blockGained) on each `playCard` call
+- Server includes `lastAction` in sanitized game state for both players
+- Opponent's card plays detected via `lastAction` field and animated from opponent side
+- Manual particle system (no @pixi/particle-emitter dependency — manual Graphics-based particles are simpler and PixiJS v8 compatible)
+- Files changed: packages/shared/src/types.ts, packages/server/src/GameEngine.ts, packages/server/src/index.ts, packages/client/src/GameBoard.tsx
+- **Learnings for future iterations:**
+  - `forwardRef` + `useImperativeHandle` is the cleanest way to expose PixiJS animation methods to React parent components
+  - Manual particle systems (array of objects updated in ticker) are simpler and more reliable than @pixi/particle-emitter with PixiJS v8
+  - `app.ticker.deltaMS` gives milliseconds since last frame — use for time-based animations in PixiJS v8
+  - `app.ticker.add(fn)` / `app.ticker.remove(fn)` for per-animation callbacks; clean up on completion to avoid memory leaks
+  - Deduplicating opponent animations: use a composite key (playerId + cardName + turnNumber + hp) to avoid re-triggering same animation
+  - Card CSS transition: `isPlaying` prop triggers immediate visual feedback while server processes the action
+  - Floating text uses TextStyle with stroke for readability against any background
 ---

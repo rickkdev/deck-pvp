@@ -2,6 +2,7 @@ import {
   type Card,
   type ClassId,
   type GameState,
+  type LastAction,
   type PlayerState,
   GAME_CONFIG,
   STARTER_DECKS,
@@ -45,6 +46,7 @@ export class GameEngine {
       turnPhase: 'action',
       turnNumber: 1,
       winner: null,
+      lastAction: null,
     };
 
     // Draw starting hands
@@ -80,6 +82,10 @@ export class GameEngine {
     // Remove card from hand
     player.hand.splice(cardIndex, 1);
 
+    // Track totals for lastAction
+    let totalDamageDealt = 0;
+    let totalBlockGained = 0;
+
     // Resolve effects
     for (const effect of card.effects) {
       const target = effect.target === 'self' ? player : opponent;
@@ -89,11 +95,13 @@ export class GameEngine {
           // Strength adds to attack card damage
           const bonus = card.type === 'attack' ? player.strength : 0;
           const totalDamage = effect.value + bonus;
+          totalDamageDealt += totalDamage;
           this.applyDamage(target, totalDamage);
           break;
         }
         case 'block':
           target.block += effect.value;
+          totalBlockGained += effect.value;
           break;
         case 'strength':
           target.strength += effect.value;
@@ -118,6 +126,16 @@ export class GameEngine {
     // Add to discard pile
     player.discardPile.push(card);
 
+    // Record the action for animation
+    state.lastAction = {
+      playerId,
+      cardName: card.name,
+      cardType: card.type,
+      cardClass: card.class,
+      damageDealt: totalDamageDealt,
+      blockGained: totalBlockGained,
+    };
+
     // Check win condition
     this.checkWin(state);
 
@@ -132,6 +150,9 @@ export class GameEngine {
 
     const player = this.getPlayer(state, playerId);
     const opponent = this.getOpponent(state, playerId);
+
+    // Clear last action
+    state.lastAction = null;
 
     // Resolve lightning orbs at end of turn (deal 3 damage to opponent)
     for (const orb of player.orbs) {

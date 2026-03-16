@@ -207,7 +207,7 @@
         "Commit all changes: 'feat: US-008 - Card playing interaction with PixiJS attack animations and particles' and push to origin"
       ],
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "notes": "This is where the game comes alive. The attack animation sequence: 1) card flies to battlefield, 2) character lunges toward opponent, 3) particle burst on hit + floating damage number, 4) character slides back. Keep each step ~200-300ms. Particle configs should be simple - just colored sparks/circles that emit and fade."
     },
     {

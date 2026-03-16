@@ -72,6 +72,7 @@ function sanitizeGameState(state: GameState, playerId: string): ClientGameState 
     turnPhase: state.turnPhase,
     turnNumber: state.turnNumber,
     winner: state.winner,
+    lastAction: state.lastAction,
   };
 }
 
