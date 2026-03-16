@@ -1,60 +1,77 @@
-import { Application, Graphics } from "pixi.js";
-import { useEffect, useRef } from "react";
-import { GAME_CONFIG } from "@deck-pvp/shared";
+import { useCallback, useEffect, useState } from "react";
+import type { ClassId, ClientGameState } from "@deck-pvp/shared";
+import {
+  connect,
+  findMatch,
+  selectClass,
+  onMatchFound,
+  onGameState,
+  onGameOver,
+  onError,
+  onWaitingForOpponent,
+} from "./socket";
+import LandingPage from "./LandingPage";
+import ClassSelection from "./ClassSelection";
+import GameBoard from "./GameBoard";
 
-function PixiCanvas() {
-  const canvasRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!canvasRef.current) return;
-
-    const app = new Application();
-    let mounted = true;
-
-    app
-      .init({
-        width: 400,
-        height: 300,
-        background: "#1a1a2e",
-        resizeTo: undefined,
-      })
-      .then(() => {
-        if (!mounted || !canvasRef.current) {
-          app.destroy(true);
-          return;
-        }
-
-        canvasRef.current.appendChild(app.canvas as HTMLCanvasElement);
-
-        const rect = new Graphics();
-        rect.rect(125, 75, 150, 150);
-        rect.fill({ color: 0x7c3aed });
-        rect.stroke({ color: 0xa78bfa, width: 3 });
-        app.stage.addChild(rect);
-      });
-
-    return () => {
-      mounted = false;
-      app.destroy(true);
-    };
-  }, []);
-
-  return <div ref={canvasRef} className="rounded-lg overflow-hidden" />;
-}
+type Screen = "landing" | "class-select" | "game";
 
 export default function App() {
-  return (
-    <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center gap-8">
-      <h1 className="text-4xl font-bold text-purple-400">Deck PVP</h1>
-      <p className="text-gray-400">
-        A Slay the Spire-inspired PvP deck-building card game
-      </p>
-      <PixiCanvas />
-      <p className="text-sm text-gray-500">
-        Max HP: {GAME_CONFIG.HP} | Energy per turn:{" "}
-        {GAME_CONFIG.ENERGY_PER_TURN} | Cards drawn:{" "}
-        {GAME_CONFIG.CARDS_DRAWN_PER_TURN}
-      </p>
-    </div>
-  );
+  const [screen, setScreen] = useState<Screen>("landing");
+  const [searching, setSearching] = useState(false);
+  const [selectedClass, setSelectedClass] = useState<ClassId | null>(null);
+  const [waitingForOpponent, setWaitingForOpponent] = useState(false);
+  const [gameState, setGameState] = useState<ClientGameState | null>(null);
+
+  useEffect(() => {
+    const unsubs = [
+      onMatchFound(() => {
+        setSearching(false);
+        setScreen("class-select");
+      }),
+      onGameState((state) => {
+        setGameState(state);
+        setWaitingForOpponent(false);
+        setScreen("game");
+      }),
+      onGameOver(({ state }) => {
+        setGameState(state);
+      }),
+      onError(({ message }) => {
+        console.error("[server error]", message);
+      }),
+      onWaitingForOpponent(() => {
+        setWaitingForOpponent(true);
+      }),
+    ];
+
+    return () => unsubs.forEach((fn) => fn());
+  }, []);
+
+  const handlePlayNow = useCallback(() => {
+    connect();
+    setSearching(true);
+    findMatch();
+  }, []);
+
+  const handleSelectClass = useCallback((classId: ClassId) => {
+    setSelectedClass(classId);
+    selectClass(classId);
+  }, []);
+
+  if (screen === "class-select") {
+    return (
+      <ClassSelection
+        onSelectClass={handleSelectClass}
+        waitingForOpponent={waitingForOpponent}
+        selectedClass={selectedClass}
+      />
+    );
+  }
+
+  if (screen === "game" && gameState) {
+    return <GameBoard gameState={gameState} />;
+  }
+
+  return <LandingPage onPlayNow={handlePlayNow} searching={searching} />;
 }
