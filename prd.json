@@ -227,7 +227,7 @@
         "Commit all changes: 'feat: US-009 - Turn flow and status effect resolution' and push to origin"
       ],
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "notes": "Pacing matters. Add small delays between effect resolution steps so players can follow the action. Server should emit state updates after each card play, not batched."
     },
     {

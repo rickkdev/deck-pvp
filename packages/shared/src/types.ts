@@ -41,6 +41,16 @@ export interface LastAction {
   blockGained: number;
 }
 
+// ── Turn Events ─────────────────────────────────────────────────────────────
+
+export type TurnEventType = 'poison-tick' | 'lightning-orb' | 'frost-orb' | 'reshuffle';
+
+export interface TurnEvent {
+  type: TurnEventType;
+  playerId: string;
+  value: number; // damage dealt, block gained, or 0 for reshuffle
+}
+
 // ── Player & Game State ─────────────────────────────────────────────────────
 
 export type TurnPhase = 'draw' | 'action' | 'end' | 'waiting';
@@ -74,6 +84,7 @@ export interface GameState {
   turnNumber: number;
   winner: string | null; // player id of the winner, null if game ongoing
   lastAction: LastAction | null;
+  turnEvents: TurnEvent[];
 }
 
 // ── Socket Event Types ──────────────────────────────────────────────────────
@@ -103,6 +114,7 @@ export interface ClientGameState {
   turnNumber: number;
   winner: string | null;
   lastAction: LastAction | null;
+  turnEvents: TurnEvent[];
 }
 
 /** Events emitted from client to server */

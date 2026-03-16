@@ -7,7 +7,7 @@ import {
   useState,
 } from "react";
 import { Application, Graphics, Container, Text, TextStyle } from "pixi.js";
-import type { Card, CardType, ClassId, ClientGameState } from "@deck-pvp/shared";
+import type { Card, CardType, ClassId, ClientGameState, TurnEvent } from "@deck-pvp/shared";
 import { playCard as emitPlayCard, endTurn as emitEndTurn } from "./socket";
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -57,6 +57,7 @@ interface BattlefieldHandle {
   animateAttack(isPlayer: boolean, classId: ClassId, damage: number): void;
   animateBlock(isPlayer: boolean, amount: number): void;
   animateBuff(isPlayer: boolean): void;
+  animatePoison(isPlayer: boolean, damage: number): void;
 }
 
 // ── PixiJS Battlefield with Animations ───────────────────────────────────────
@@ -162,6 +163,23 @@ const BattlefieldCanvas = forwardRef<
 
       // Rising golden particles
       spawnRiseParticles(basePos.x, basePos.y, 0xfbbf24, 15);
+    },
+
+    animatePoison(isPlayer: boolean, damage: number) {
+      const basePos = isPlayer
+        ? playerBasePos.current
+        : opponentBasePos.current;
+
+      // Green poison cloud particles
+      spawnBurstParticles(basePos.x, basePos.y, 0x22c55e, 25);
+      if (damage > 0) {
+        spawnFloatingText(
+          basePos.x,
+          basePos.y - 40,
+          `-${damage}`,
+          0x22c55e,
+        );
+      }
     },
   }));
 
@@ -553,28 +571,48 @@ function CardInHand({
   canPlay,
   isYourTurn,
   isPlaying,
+  isDiscarding,
+  isDrawingIn,
+  drawDelay,
   onPlay,
 }: {
   card: Card;
   canPlay: boolean;
   isYourTurn: boolean;
   isPlaying: boolean;
+  isDiscarding: boolean;
+  isDrawingIn: boolean;
+  drawDelay: number;
   onPlay: (cardId: string) => void;
 }) {
   const [hovered, setHovered] = useState(false);
-  const playable = canPlay && isYourTurn;
+  const playable = canPlay && isYourTurn && !isDiscarding;
   const isFree = card.energyCost === 0;
+
+  const animClass = isDiscarding
+    ? "translate-y-40 opacity-0 scale-75 pointer-events-none"
+    : isPlaying
+      ? "-translate-y-20 scale-75 opacity-0 pointer-events-none"
+      : isDrawingIn
+        ? "translate-y-0 opacity-100"
+        : hovered
+          ? "-translate-y-6 z-50 scale-110"
+          : "z-10";
+
+  const animStyle = isDiscarding
+    ? { transition: "all 400ms ease-in" }
+    : isPlaying
+      ? { transition: "all 300ms ease-out" }
+      : isDrawingIn
+        ? { transition: `all 300ms ease-out ${drawDelay}ms`, transform: "translateY(0)", opacity: 1 }
+        : undefined;
 
   return (
     <div
-      className={`relative flex-shrink-0 w-28 transition-all duration-200 ${
-        isPlaying
-          ? "-translate-y-20 scale-75 opacity-0 pointer-events-none"
-          : hovered
-            ? "-translate-y-6 z-50 scale-110"
-            : "z-10"
-      } ${playable && !isPlaying ? "cursor-pointer" : "cursor-not-allowed opacity-50"}`}
-      style={isPlaying ? { transition: "all 300ms ease-out" } : undefined}
+      className={`relative flex-shrink-0 w-28 transition-all duration-200 ${animClass} ${
+        playable && !isPlaying ? "cursor-pointer" : "cursor-not-allowed opacity-50"
+      }`}
+      style={animStyle}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onClick={() => playable && !isPlaying && onPlay(card.id)}
@@ -696,6 +734,14 @@ export default function GameBoard({ gameState }: GameBoardProps) {
   const battlefieldRef = useRef<BattlefieldHandle | null>(null);
   const [playingCardId, setPlayingCardId] = useState<string | null>(null);
   const lastProcessedActionRef = useRef<string | null>(null);
+  const prevTurnRef = useRef<number>(turnNumber);
+  const [isDiscarding, setIsDiscarding] = useState(false);
+  const [newCardIds, setNewCardIds] = useState<Set<string>>(new Set());
+  const [opponentPlayedCard, setOpponentPlayedCard] = useState<{
+    cardName: string;
+    cardType: CardType;
+  } | null>(null);
+  const processedTurnEventsRef = useRef<number>(0);
 
   // Animate opponent's actions from lastAction
   useEffect(() => {
@@ -710,6 +756,10 @@ export default function GameBoard({ gameState }: GameBoardProps) {
     if (lastProcessedActionRef.current === actionKey) return;
     lastProcessedActionRef.current = actionKey;
 
+    // Show face-down card briefly for opponent's play
+    setOpponentPlayedCard({ cardName: action.cardName, cardType: action.cardType });
+    setTimeout(() => setOpponentPlayedCard(null), 800);
+
     triggerCardAnimation(
       battlefieldRef,
       action.cardType,
@@ -719,6 +769,38 @@ export default function GameBoard({ gameState }: GameBoardProps) {
       action.blockGained,
     );
   }, [gameState.lastAction, you.id, gameState.turnNumber, opponent.hp]);
+
+  // Handle turn transitions — animate poison, draw-in, etc.
+  useEffect(() => {
+    if (turnNumber === prevTurnRef.current) return;
+    prevTurnRef.current = turnNumber;
+
+    // Process turn events (poison tick, orb effects) with staggered delays
+    const events = gameState.turnEvents || [];
+    if (events.length > 0 && processedTurnEventsRef.current !== turnNumber) {
+      processedTurnEventsRef.current = turnNumber;
+      events.forEach((event: TurnEvent, i: number) => {
+        setTimeout(() => {
+          const bf = battlefieldRef.current;
+          if (!bf) return;
+          const isPlayer = event.playerId === you.id;
+
+          if (event.type === "poison-tick") {
+            bf.animatePoison(isPlayer, event.value);
+          } else if (event.type === "lightning-orb") {
+            bf.animateAttack(isPlayer, "mage", event.value);
+          } else if (event.type === "frost-orb") {
+            bf.animateBlock(isPlayer, event.value);
+          }
+        }, i * 400);
+      });
+    }
+
+    // Animate new cards drawing in (staggered)
+    const cardIds = new Set(you.hand.map((c) => c.id));
+    setNewCardIds(cardIds);
+    setTimeout(() => setNewCardIds(new Set()), 1500);
+  }, [turnNumber, gameState.turnEvents, you.hand, you.id]);
 
   // Clear playing card state when hand changes (server responded)
   useEffect(() => {
@@ -731,7 +813,7 @@ export default function GameBoard({ gameState }: GameBoardProps) {
 
   const handlePlayCard = useCallback(
     (cardId: string) => {
-      if (!isYourTurn || playingCardId) return;
+      if (!isYourTurn || playingCardId || isDiscarding) return;
 
       const card = you.hand.find((c) => c.id === cardId);
       if (!card) return;
@@ -766,13 +848,19 @@ export default function GameBoard({ gameState }: GameBoardProps) {
       // Emit to server
       emitPlayCard(cardId);
     },
-    [isYourTurn, playingCardId, you.hand, you.strength, you.class],
+    [isYourTurn, playingCardId, isDiscarding, you.hand, you.strength, you.class],
   );
 
   const handleEndTurn = useCallback(() => {
-    if (!isYourTurn) return;
-    emitEndTurn();
-  }, [isYourTurn]);
+    if (!isYourTurn || isDiscarding) return;
+
+    // Animate cards discarding, then emit end-turn
+    setIsDiscarding(true);
+    setTimeout(() => {
+      emitEndTurn();
+      setIsDiscarding(false);
+    }, 450);
+  }, [isYourTurn, isDiscarding]);
 
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-gray-950 select-none">
@@ -871,21 +959,38 @@ export default function GameBoard({ gameState }: GameBoardProps) {
 
           {/* Hand of Cards */}
           <div className="flex items-end justify-center gap-1 pb-1 pointer-events-auto min-h-[140px]">
-            {you.hand.map((card) => (
+            {you.hand.map((card, index) => (
               <CardInHand
                 key={card.id}
                 card={card}
                 canPlay={card.energyCost <= you.energy}
                 isYourTurn={isYourTurn}
                 isPlaying={card.id === playingCardId}
+                isDiscarding={isDiscarding}
+                isDrawingIn={newCardIds.has(card.id)}
+                drawDelay={index * 100}
                 onPlay={handlePlayCard}
               />
             ))}
-            {you.hand.length === 0 && (
+            {you.hand.length === 0 && !isDiscarding && (
               <p className="text-gray-600 text-sm italic">No cards in hand</p>
             )}
           </div>
         </div>
+
+        {/* Opponent card-back overlay (shown briefly when opponent plays) */}
+        {opponentPlayedCard && (
+          <div className="absolute top-1/3 right-1/4 animate-pulse pointer-events-none">
+            <div className="w-20 h-28 rounded-lg border-2 border-gray-500 bg-gradient-to-br from-gray-700 to-gray-900 flex flex-col items-center justify-center shadow-lg shadow-black/50">
+              <div className="w-12 h-16 rounded border border-gray-600 bg-gradient-to-br from-purple-900/50 to-blue-900/50 flex items-center justify-center">
+                <span className="text-gray-400 text-lg font-bold">?</span>
+              </div>
+              <p className="text-[9px] text-gray-400 mt-1 uppercase">
+                {opponentPlayedCard.cardType}
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

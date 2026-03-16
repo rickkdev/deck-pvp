@@ -4,6 +4,7 @@ import {
   type GameState,
   type LastAction,
   type PlayerState,
+  type TurnEvent,
   GAME_CONFIG,
   STARTER_DECKS,
 } from '@deck-pvp/shared';
@@ -47,6 +48,7 @@ export class GameEngine {
       turnNumber: 1,
       winner: null,
       lastAction: null,
+      turnEvents: [],
     };
 
     // Draw starting hands
@@ -69,6 +71,9 @@ export class GameEngine {
 
     const player = this.getPlayer(state, playerId);
     const opponent = this.getOpponent(state, playerId);
+
+    // Clear turn events on card play (they're only relevant at turn transition)
+    state.turnEvents = [];
 
     const cardIndex = player.hand.findIndex((c) => c.id === cardId);
     if (cardIndex === -1) throw new Error('Card not in hand');
@@ -151,18 +156,23 @@ export class GameEngine {
     const player = this.getPlayer(state, playerId);
     const opponent = this.getOpponent(state, playerId);
 
-    // Clear last action
+    // Clear last action and turn events
     state.lastAction = null;
+    const events: TurnEvent[] = [];
 
     // Resolve lightning orbs at end of turn (deal 3 damage to opponent)
     for (const orb of player.orbs) {
       if (orb.type === 'lightning') {
         this.applyDamage(opponent, 3);
+        events.push({ type: 'lightning-orb', playerId: opponent.id, value: 3 });
       }
     }
 
     // Check win after lightning orb damage
-    if (this.checkWin(state)) return state;
+    if (this.checkWin(state)) {
+      state.turnEvents = events;
+      return state;
+    }
 
     // Discard remaining hand
     player.discardPile.push(...player.hand);
@@ -176,9 +186,14 @@ export class GameEngine {
 
     // Resolve poison at start of poisoned player's turn
     if (opponent.poison > 0) {
-      this.applyDamage(opponent, opponent.poison);
+      const poisonDmg = opponent.poison;
+      this.applyDamage(opponent, poisonDmg);
       opponent.poison--;
-      if (this.checkWin(state)) return state;
+      events.push({ type: 'poison-tick', playerId: opponent.id, value: poisonDmg });
+      if (this.checkWin(state)) {
+        state.turnEvents = events;
+        return state;
+      }
     }
 
     // Reset block
@@ -191,12 +206,19 @@ export class GameEngine {
     for (const orb of opponent.orbs) {
       if (orb.type === 'frost') {
         opponent.block += 3;
+        events.push({ type: 'frost-orb', playerId: opponent.id, value: 3 });
       }
+    }
+
+    // Track reshuffle
+    if (opponent.drawPile.length === 0 && opponent.discardPile.length > 0) {
+      events.push({ type: 'reshuffle', playerId: opponent.id, value: 0 });
     }
 
     // Draw new hand
     this.drawCards(opponent, GAME_CONFIG.CARDS_DRAWN_PER_TURN);
 
+    state.turnEvents = events;
     return state;
   }
 

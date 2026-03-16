@@ -16,6 +16,8 @@ Started: Mon Mar 16 2026
 - Manual particle system: array of `{gfx, vx, vy, life, maxLife}` objects updated each frame in the main ticker loop
 - `lastAction` field on GameState/ClientGameState tracks the most recent card play for opponent animation sync
 - Card play animation CSS: `isPlaying` prop triggers translate-y + scale + opacity transition on the React card element
+- Turn transition events: `TurnEvent[]` on GameState communicates what happened during endTurn (poison, orbs, reshuffle) — client animates with staggered delays
+- Discard animation: delay server emit by ~450ms after setting `isDiscarding` state so CSS animation completes first
 - PixiJS v8 `Application.init()` is async — use a `destroyed` flag to handle unmount-during-init cleanup
 - GameEngine is the authoritative game logic class in `packages/server/src/GameEngine.ts`
 - GameEngine stores games in a Map keyed by gameId — use `engine.getGame(id)` to retrieve
@@ -157,4 +159,24 @@ Started: Mon Mar 16 2026
   - Deduplicating opponent animations: use a composite key (playerId + cardName + turnNumber + hp) to avoid re-triggering same animation
   - Card CSS transition: `isPlaying` prop triggers immediate visual feedback while server processes the action
   - Floating text uses TextStyle with stroke for readability against any background
+---
+
+## 2026-03-16 - US-009
+- Implemented turn flow and status effect resolution with visual feedback
+- Added `TurnEvent` type to shared types for server→client turn transition communication
+- GameEngine.endTurn now populates `turnEvents` array with poison-tick, lightning-orb, frost-orb, and reshuffle events
+- Client detects turn transitions via `prevTurnRef` and animates turn events with staggered 400ms delays
+- Discard animation: cards slide down and fade out (400ms ease-in) when End Turn clicked, then emit end-turn after 450ms
+- Draw-in animation: new cards detected by tracking card IDs, each gets staggered entry animation (100ms delay per card)
+- Poison tick: green burst particles + floating green damage number on poisoned character via `animatePoison` method on BattlefieldCanvas
+- Opponent face-down card: brief card-back overlay shown at opponent position when opponent plays a card (800ms display)
+- Energy refill uses existing CSS transitions (300ms) which animate smoothly on state change
+- Turn number already displayed from US-007
+- Files changed: packages/shared/src/types.ts, packages/server/src/GameEngine.ts, packages/server/src/index.ts, packages/client/src/GameBoard.tsx
+- **Learnings for future iterations:**
+  - `TurnEvent` pattern: server populates events during turn transitions, client processes with staggered delays for visual pacing
+  - Discard animation timing: set `isDiscarding` state first, delay emit by 450ms to let CSS animation complete before server processes
+  - Card draw-in detection: track new card IDs in a `Set`, clear after animation timeout (1500ms)
+  - `animatePoison` reuses `spawnBurstParticles` with green color (0x22c55e) for consistency
+  - Opponent card-back overlay uses `animate-pulse` with absolute positioning at top-1/3 right-1/4
 ---
