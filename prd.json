@@ -244,7 +244,7 @@
         "Commit all changes: 'feat: US-010 - Win/loss screen and rematch' and push to origin"
       ],
       "priority": 10,
-      "passes": false,
+      "passes": true,
       "notes": "Handle the disconnect case gracefully. Track basic stats in the GameEngine for the end screen."
     },
     {

@@ -27,6 +27,8 @@ Started: Mon Mar 16 2026
 - Client socket wrapper is in `packages/client/src/socket.ts` — functions return unsubscribe callbacks for React cleanup
 - Server tracks player→game mapping in `playerGames` Map and handles disconnect cleanup (awards win to remaining player)
 - Class-specific HP values are in GameEngine's `CLASS_HP` constant (warrior=75, rogue=65, mage=60)
+- GameEngine tracks per-player stats in a separate `stats` Map — access via `engine.getStats(gameId)`
+- Game-over overlay pattern: render as `fixed inset-0 z-50` on top of the GameBoard (board stays visible with backdrop blur)
 
 ---
 
@@ -179,4 +181,22 @@ Started: Mon Mar 16 2026
   - Card draw-in detection: track new card IDs in a `Set`, clear after animation timeout (1500ms)
   - `animatePoison` reuses `spawnBurstParticles` with green color (0x22c55e) for consistency
   - Opponent card-back overlay uses `animate-pulse` with absolute positioning at top-1/3 right-1/4
+---
+
+## 2026-03-16 - US-010
+- Implemented win/loss screen with Victory/Defeat overlay, final stats, and rematch flow
+- Added `GameStats` type to shared types (damageDealt, cardsPlayed, turnsTaken)
+- GameEngine tracks per-player stats: cards played and damage dealt in `playCard`, turns taken in `endTurn`
+- Server sends stats with `game-over` event, plus `disconnected` flag when opponent disconnects
+- GameOverScreen component shows Victory (green) or Defeat (red) with both players' stats
+- "Play Again" re-enters matchmaking queue without disconnecting socket; "Home" disconnects and returns to landing
+- App.tsx manages `game-over` screen state, renders overlay on top of GameBoard
+- Disconnect mid-game shows "Opponent disconnected" message on win screen
+- Files changed: packages/shared/src/types.ts, packages/server/src/GameEngine.ts, packages/server/src/index.ts, packages/client/src/socket.ts, packages/client/src/App.tsx, packages/client/src/GameOverScreen.tsx (new)
+- **Learnings for future iterations:**
+  - GameOverScreen renders as a fixed overlay (`fixed inset-0 z-50`) on top of the GameBoard — board stays visible underneath with blur
+  - Stats are tracked in a separate `Map<gameId, Map<playerId, GameStats>>` in GameEngine, parallel to the games Map
+  - `handlePlayAgain` reuses the existing socket connection — just calls `findMatch()` again without reconnecting
+  - `disconnect()` must be called on "Home" to cleanly leave the socket; otherwise the server still tracks the player
+  - `playerGames.delete(socket.id)` in `find-match` handler cleans up stale game references on rematch
 ---
