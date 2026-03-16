@@ -4,6 +4,7 @@ import {
   connect,
   disconnect,
   findMatch,
+  playVsAI,
   selectClass,
   onMatchFound,
   onGameState,
@@ -58,10 +59,15 @@ export default function App() {
     return () => unsubs.forEach((fn) => fn());
   }, []);
 
-  const handlePlayNow = useCallback(() => {
+  const handlePlayPvP = useCallback(() => {
     connect();
     setSearching(true);
     findMatch();
+  }, []);
+
+  const handlePlayVsAI = useCallback(() => {
+    connect();
+    playVsAI();
   }, []);
 
   const handleSelectClass = useCallback((classId: ClassId) => {
@@ -74,9 +80,8 @@ export default function App() {
     setGameOverData(null);
     setSelectedClass(null);
     setWaitingForOpponent(false);
-    setSearching(true);
+    setSearching(false);
     setScreen("landing");
-    findMatch();
   }, []);
 
   const handleHome = useCallback(() => {
@@ -116,5 +121,5 @@ export default function App() {
     );
   }
 
-  return <LandingPage onPlayNow={handlePlayNow} searching={searching} />;
+  return <LandingPage onPlayPvP={handlePlayPvP} onPlayVsAI={handlePlayVsAI} searching={searching} />;
 }

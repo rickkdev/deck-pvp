@@ -128,6 +128,7 @@ export interface ClientGameState {
 /** Events emitted from client to server */
 export interface ClientToServerEvents {
   'find-match': () => void;
+  'play-vs-ai': () => void;
   'select-class': (classId: ClassId) => void;
   'play-card': (cardId: string) => void;
   'end-turn': () => void;

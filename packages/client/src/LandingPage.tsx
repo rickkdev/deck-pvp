@@ -1,9 +1,10 @@
 interface LandingPageProps {
-  onPlayNow: () => void;
+  onPlayPvP: () => void;
+  onPlayVsAI: () => void;
   searching: boolean;
 }
 
-export default function LandingPage({ onPlayNow, searching }: LandingPageProps) {
+export default function LandingPage({ onPlayPvP, onPlayVsAI, searching }: LandingPageProps) {
   return (
     <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center gap-10 px-4">
       {/* Ambient glow behind title */}
@@ -34,12 +35,20 @@ export default function LandingPage({ onPlayNow, searching }: LandingPageProps) 
           </div>
         </div>
       ) : (
-        <button
-          onClick={onPlayNow}
-          className="px-10 py-4 bg-purple-600 hover:bg-purple-500 active:bg-purple-700 text-white text-xl font-bold rounded-xl transition-all duration-200 shadow-lg shadow-purple-600/30 hover:shadow-purple-500/40 hover:scale-105 cursor-pointer"
-        >
-          Play Now
-        </button>
+        <div className="flex flex-col items-center gap-4">
+          <button
+            onClick={onPlayPvP}
+            className="px-10 py-4 bg-purple-600 hover:bg-purple-500 active:bg-purple-700 text-white text-xl font-bold rounded-xl transition-all duration-200 shadow-lg shadow-purple-600/30 hover:shadow-purple-500/40 hover:scale-105 cursor-pointer w-64"
+          >
+            Play PvP
+          </button>
+          <button
+            onClick={onPlayVsAI}
+            className="px-10 py-4 bg-gray-700 hover:bg-gray-600 active:bg-gray-800 text-white text-xl font-bold rounded-xl transition-all duration-200 shadow-lg shadow-gray-700/30 hover:shadow-gray-600/40 hover:scale-105 cursor-pointer w-64"
+          >
+            Play vs AI
+          </button>
+        </div>
       )}
 
       <div className="flex gap-8 text-sm text-gray-600">

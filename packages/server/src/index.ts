@@ -12,6 +12,7 @@ import {
   type ServerToClientEvents,
 } from "@deck-pvp/shared";
 import { GameEngine } from "./GameEngine.js";
+import { pickRandomClass, runAITurn } from "./AIPlayer.js";
 
 const app = express();
 const httpServer = createServer(app);
@@ -43,6 +44,12 @@ const pendingMatches = new Map<string, PendingMatch>();
 
 /** Map from socket id → active game id */
 const playerGames = new Map<string, string>();
+
+/** Set of game IDs that are AI games (key = gameId, value = AI player id) */
+const aiGames = new Map<string, string>();
+
+/** Pending AI matches waiting for the human to select a class */
+const pendingAIMatches = new Map<string, string>(); // socketId → matchId
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -79,7 +86,10 @@ function sanitizeGameState(state: GameState, playerId: string): ClientGameState 
 }
 
 function emitGameState(state: GameState): void {
+  const aiPlayerId = aiGames.get(state.id);
   for (const player of state.players) {
+    // Don't emit to AI — it has no socket
+    if (player.id === aiPlayerId) continue;
     io.to(player.id).emit("game-state", sanitizeGameState(state, player.id));
   }
 }
@@ -87,8 +97,11 @@ function emitGameState(state: GameState): void {
 function emitGameOver(state: GameState, disconnected?: boolean): void {
   const statsMap = engine.getStats(state.id);
   const defaultStats: GameStats = { damageDealt: 0, cardsPlayed: 0, turnsTaken: 0 };
+  const aiPlayerId = aiGames.get(state.id);
 
   for (const player of state.players) {
+    // Don't emit to AI — it has no socket
+    if (player.id === aiPlayerId) continue;
     const opp = state.players.find((p) => p.id !== player.id)!;
     io.to(player.id).emit("game-over", {
       winner: state.winner!,
@@ -100,6 +113,11 @@ function emitGameOver(state: GameState, disconnected?: boolean): void {
       ...(disconnected ? { disconnected: true } : {}),
     });
   }
+
+  // Clean up AI game tracking
+  if (aiPlayerId) {
+    aiGames.delete(state.id);
+  }
 }
 
 function cleanupPlayer(socketId: string): void {
@@ -108,7 +126,10 @@ function cleanupPlayer(socketId: string): void {
     matchmakingQueue = null;
   }
 
-  // Remove from pending matches
+  // Remove from pending AI matches
+  pendingAIMatches.delete(socketId);
+
+  // Remove from pending PvP matches
   for (const [matchId, match] of pendingMatches) {
     if (match.players.some((p) => p.socketId === socketId)) {
       const opponent = match.players.find((p) => p.socketId !== socketId);
@@ -124,15 +145,38 @@ function cleanupPlayer(socketId: string): void {
   if (gameId) {
     const state = engine.getGame(gameId);
     if (state && !state.winner) {
-      // Award win to the remaining player
-      const winner = state.players.find((p) => p.id !== socketId);
-      if (winner) {
-        state.winner = winner.id;
-        emitGameOver(state, true);
+      // For AI games, just clean up — no need to award win to AI
+      if (aiGames.has(gameId)) {
+        state.winner = 'disconnected';
+        aiGames.delete(gameId);
+      } else {
+        // Award win to the remaining player
+        const winner = state.players.find((p) => p.id !== socketId);
+        if (winner) {
+          state.winner = winner.id;
+          emitGameOver(state, true);
+        }
       }
     }
     playerGames.delete(socketId);
   }
+}
+
+/** If the game is an AI game and it's the AI's turn, trigger AI play */
+function maybeRunAITurn(gameId: string): void {
+  const aiPlayerId = aiGames.get(gameId);
+  if (!aiPlayerId) return;
+
+  const state = engine.getGame(gameId);
+  if (!state || state.winner || state.currentTurn !== aiPlayerId) return;
+
+  runAITurn(
+    engine,
+    gameId,
+    aiPlayerId,
+    (updated) => emitGameState(updated),
+    (updated) => emitGameOver(updated),
+  );
 }
 
 // ── Express routes ──────────────────────────────────────────────────────────
@@ -175,9 +219,46 @@ io.on("connection", (socket: Socket<ClientToServerEvents, ServerToClientEvents>)
     }
   });
 
+  // ── Play vs AI ─────────────────────────────────────────────────────────
+  socket.on("play-vs-ai", () => {
+    // Clean up any previous game
+    playerGames.delete(socket.id);
+
+    const matchId = crypto.randomUUID();
+    pendingAIMatches.set(socket.id, matchId);
+
+    // Go straight to class selection (no matchmaking wait)
+    socket.emit("match-found", { gameId: matchId });
+    console.log(`AI match created for ${socket.id} (${matchId})`);
+  });
+
   // ── Select Class ────────────────────────────────────────────────────────
   socket.on("select-class", (classId: ClassId) => {
-    // Find the pending match for this socket
+    // Check if this is an AI match first
+    const aiMatchId = pendingAIMatches.get(socket.id);
+    if (aiMatchId) {
+      pendingAIMatches.delete(socket.id);
+
+      const aiId = `ai-${crypto.randomUUID()}`;
+      const aiClass = pickRandomClass();
+
+      const state = engine.createGame(
+        { id: socket.id, name: "Player 1", class: classId },
+        { id: aiId, name: "AI Opponent", class: aiClass },
+      );
+
+      playerGames.set(socket.id, state.id);
+      aiGames.set(state.id, aiId);
+
+      emitGameState(state);
+      console.log(`AI game started: ${state.id} (AI class: ${aiClass})`);
+
+      // If AI goes first (it won't since player1 always starts), trigger AI turn
+      maybeRunAITurn(state.id);
+      return;
+    }
+
+    // Find the pending PvP match for this socket
     let found: PendingMatch | null = null;
     for (const match of pendingMatches.values()) {
       if (match.players.some((p) => p.socketId === socket.id)) {
@@ -255,6 +336,9 @@ io.on("connection", (socket: Socket<ClientToServerEvents, ServerToClientEvents>)
 
       if (state.winner) {
         emitGameOver(state);
+      } else {
+        // Trigger AI turn if this is an AI game
+        maybeRunAITurn(gameId);
       }
     } catch (err) {
       socket.emit("error", { message: (err as Error).message });

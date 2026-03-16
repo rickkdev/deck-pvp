@@ -44,6 +44,11 @@ export function findMatch(): void {
   getSocket().emit("find-match");
 }
 
+/** Start a game vs AI */
+export function playVsAI(): void {
+  getSocket().emit("play-vs-ai");
+}
+
 /** Select a class for the current match */
 export function selectClass(classId: ClassId): void {
   getSocket().emit("select-class", classId);

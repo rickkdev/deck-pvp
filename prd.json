@@ -262,7 +262,7 @@
         "Commit all changes: 'feat: US-011 - Single-player vs AI mode' and push to origin"
       ],
       "priority": 11,
-      "passes": false,
+      "passes": true,
       "notes": "AI doesn't need to be smart - just functional enough to provide a basic challenge. Keep the AI logic simple and in the server."
     },
     {

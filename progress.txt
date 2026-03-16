@@ -19,6 +19,7 @@ Started: Mon Mar 16 2026
 - Turn transition events: `TurnEvent[]` on GameState communicates what happened during endTurn (poison, orbs, reshuffle) — client animates with staggered delays
 - Discard animation: delay server emit by ~450ms after setting `isDiscarding` state so CSS animation completes first
 - PixiJS v8 `Application.init()` is async — use a `destroyed` flag to handle unmount-during-init cleanup
+- AI games: `aiGames` Map tracks gameId→aiPlayerId; `maybeRunAITurn()` triggers after human end-turn; AI player IDs prefixed with `ai-`
 - GameEngine is the authoritative game logic class in `packages/server/src/GameEngine.ts`
 - GameEngine stores games in a Map keyed by gameId — use `engine.getGame(id)` to retrieve
 - Server tests use vitest — run with `pnpm --filter @deck-pvp/server test`
@@ -199,4 +200,23 @@ Started: Mon Mar 16 2026
   - `handlePlayAgain` reuses the existing socket connection — just calls `findMatch()` again without reconnecting
   - `disconnect()` must be called on "Home" to cleanly leave the socket; otherwise the server still tracks the player
   - `playerGames.delete(socket.id)` in `find-match` handler cleans up stale game references on rematch
+---
+
+## 2026-03-16 - US-011
+- Implemented single-player vs AI mode
+- Landing page now has two buttons: "Play PvP" and "Play vs AI"
+- "Play vs AI" skips matchmaking, goes directly to class selection; AI randomly picks a class
+- AI strategy: play highest damage attack if opponent has no block, play block cards if HP < 50%, otherwise play random playable card, end turn after all playable cards exhausted or out of energy
+- AI runs server-side with 500ms delays between card plays using async/await
+- AI uses same GameEngine — no special rules
+- Win/loss screen works same as PvP; "Play Again" returns to landing to choose mode
+- Files changed: packages/shared/src/types.ts, packages/server/src/AIPlayer.ts (new), packages/server/src/index.ts, packages/client/src/socket.ts, packages/client/src/LandingPage.tsx, packages/client/src/App.tsx, prd.json
+- **Learnings for future iterations:**
+  - AI player uses `ai-${uuid}` prefix for its ID to avoid collision with socket IDs
+  - `emitGameState` and `emitGameOver` skip AI player ID (no socket to emit to)
+  - `aiGames` Map tracks gameId → aiPlayerId for AI game detection
+  - `pendingAIMatches` Map tracks socketId → matchId for AI class selection flow
+  - `maybeRunAITurn()` is called after human end-turn to trigger AI's async turn
+  - AI turn is fully async — plays cards in a loop with 500ms delays, then ends turn
+  - On disconnect from AI game, just mark winner as 'disconnected' and clean up (no opponent to notify)
 ---
