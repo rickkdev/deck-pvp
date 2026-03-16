@@ -1,4 +1,6 @@
 // Shared types and constants for DeckPVP
+export * from './types.js';
+
 export const GAME_CONFIG = {
   HP: 70,
   ENERGY_PER_TURN: 3,
