@@ -1,0 +1,287 @@
+{
+  "project": "DeckPVP",
+  "branchName": "ralph/mvp-core",
+  "description": "Deck PVP - A Slay the Spire-inspired PvP deck-building card game in the browser. Players build decks from character classes and battle each other in turn-based card combat. MVP focuses on core gameplay loop, basic cards, and real-time multiplayer.",
+  "techStack": {
+    "frontend": "Vite + React + TypeScript",
+    "gameRenderer": "PixiJS v8 (@pixi/react for React integration) - renders the battlefield canvas (characters, card animations, particle effects)",
+    "uiLayer": "React + Tailwind CSS - renders HUD overlay on top of canvas (HP bars, hand of cards, menus, buttons)",
+    "particles": "@pixi/particle-emitter for card play effects (sparks, slashes, poison clouds, frost bursts)",
+    "backend": "Node.js + Express + Socket.io",
+    "state": "Zustand (client game state)",
+    "packageManager": "pnpm",
+    "monorepo": "pnpm workspaces (packages/client, packages/server, packages/shared)"
+  },
+  "gameDesign": {
+    "hp": 70,
+    "energyPerTurn": 3,
+    "cardsDrawnPerTurn": 5,
+    "maxHandSize": 10,
+    "startingDeckSize": 10,
+    "blockResetsEachTurn": true,
+    "classes": [
+      {
+        "id": "warrior",
+        "name": "Warrior",
+        "description": "Strength-based fighter. Buffs attack power and deals heavy damage.",
+        "startingHp": 75,
+        "mechanic": "Strength - increases damage dealt by Attack cards"
+      },
+      {
+        "id": "rogue",
+        "name": "Rogue",
+        "description": "Fast and evasive. Plays many cheap cards and applies poison.",
+        "startingHp": 65,
+        "mechanic": "Poison - deals damage at start of opponent's turn, decreasing by 1 each turn"
+      },
+      {
+        "id": "mage",
+        "name": "Mage",
+        "description": "Arcane spellcaster. Uses orbs and channeled effects for sustained damage.",
+        "startingHp": 60,
+        "mechanic": "Channeling - orbs that passively trigger effects each turn"
+      }
+    ]
+  },
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Project scaffold with monorepo",
+      "description": "As a developer, I need the project bootstrapped so all future stories have a working foundation to build on.",
+      "acceptanceCriteria": [
+        "pnpm workspace monorepo with packages/client, packages/server, packages/shared",
+        "Client: Vite + React + TypeScript with Tailwind CSS configured",
+        "Client: PixiJS v8 installed with @pixi/react for React integration",
+        "Client: @pixi/particle-emitter installed for particle effects",
+        "Client: Placeholder landing page at localhost:5173 with a test PixiJS canvas rendering (simple colored rectangle or text) to verify Pixi works",
+        "Server: Node.js + Express + TypeScript with Socket.io installed",
+        "Shared: TypeScript package for shared types/constants between client and server",
+        "Root scripts: 'pnpm dev' starts both client and server concurrently",
+        "Server responds to health check at localhost:3001/health",
+        "TypeScript strict mode enabled, all packages typecheck cleanly",
+        "Commit all changes: 'feat: US-001 - Project scaffold with monorepo' and push to origin"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "Use pnpm workspaces. Client on 5173, server on 3001. Shared package is referenced by both. The architecture is: PixiJS canvas fills the game board area for rendering characters/effects, React+Tailwind renders the HUD overlay (cards in hand, HP bars, buttons) on top of the canvas."
+    },
+    {
+      "id": "US-002",
+      "title": "Shared card and game type definitions",
+      "description": "As a developer, I need shared TypeScript types for cards, game state, players, and effects so client and server speak the same language.",
+      "acceptanceCriteria": [
+        "Card type with fields: id, name, description, type (attack|skill|power), energyCost, effects[], class, rarity",
+        "Effect type: { type: 'damage'|'block'|'strength'|'poison'|'draw'|'energy', value: number, target: 'self'|'opponent' }",
+        "GameState type: players[], currentTurn, turnPhase, turnNumber, winner",
+        "PlayerState type: id, name, class, hp, maxHp, energy, maxEnergy, block, strength, poison, hand[], drawPile[], discardPile[]",
+        "All types exported from packages/shared and importable by client and server",
+        "Typecheck passes across all packages",
+        "Commit all changes: 'feat: US-002 - Shared card and game type definitions' and push to origin"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "These types are the contract between client and server. Keep them clean and well-documented."
+    },
+    {
+      "id": "US-003",
+      "title": "Card definitions for 3 starter classes",
+      "description": "As a player, I want 3 distinct classes (Warrior, Rogue, Mage) each with a unique starter deck of 10 cards so I have meaningful choice at the start.",
+      "acceptanceCriteria": [
+        "Warrior starter deck (10 cards): 5x Strike (1 energy, 6 damage), 4x Defend (1 energy, 5 block), 1x Bash (2 energy, 8 damage + 2 strength)",
+        "Rogue starter deck (10 cards): 5x Shiv Strike (0 energy, 3 damage), 3x Defend (1 energy, 5 block), 1x Poison Blade (1 energy, 3 damage + 3 poison), 1x Dodge (1 energy, 7 block + draw 1)",
+        "Mage starter deck (10 cards): 4x Arcane Bolt (1 energy, 5 damage), 3x Barrier (1 energy, 6 block), 1x Channel Lightning (1 energy, channel lightning orb), 1x Frost Shield (1 energy, channel frost orb + 3 block), 1x Surge (0 energy, +1 energy this turn)",
+        "All card data defined in packages/shared/src/cards.ts as constant arrays",
+        "Each card uses the shared Card type",
+        "Typecheck passes",
+        "Commit all changes: 'feat: US-003 - Card definitions for 3 starter classes' and push to origin"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "Keep cards simple for MVP. Balance is not critical yet - just make each class feel different. Mage orb mechanic can be simplified to: lightning orb does 3 damage at end of turn, frost orb gives 3 block at start of turn."
+    },
+    {
+      "id": "US-004",
+      "title": "Server-side game engine",
+      "description": "As a developer, I need a server-side game engine that manages the full game state, validates card plays, resolves effects, and handles turn progression.",
+      "acceptanceCriteria": [
+        "GameEngine class in packages/server that creates and manages a GameState",
+        "createGame(player1, player2): initializes game state with shuffled decks, draws starting hands",
+        "playCard(gameId, playerId, cardId): validates it's the player's turn, they have enough energy, card is in hand; resolves all effects (damage reduced by block, then HP; block added; strength/poison applied; cards drawn)",
+        "endTurn(gameId, playerId): discards remaining hand, resets energy, applies poison damage, decrements poison, resets block, draws new hand, switches active player",
+        "Poison resolves at start of poisoned player's turn (damage = poison amount, then poison decreases by 1)",
+        "Strength adds its value to all Attack card damage",
+        "Win detection: when a player's HP reaches 0, set winner in game state",
+        "All mutations return the new GameState",
+        "Unit tests for: playing attack card, playing block card, poison tick, strength buff, turn switching, win detection",
+        "Typecheck passes",
+        "Commit all changes: 'feat: US-004 - Server-side game engine' and push to origin"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "This is the authoritative game logic. Client will display state received from server. Never trust client-computed game state."
+    },
+    {
+      "id": "US-005",
+      "title": "Socket.io real-time communication layer",
+      "description": "As a developer, I need WebSocket communication between client and server so two players can play in real time.",
+      "acceptanceCriteria": [
+        "Socket.io server on port 3001 alongside Express",
+        "Events from client: 'find-match', 'select-class', 'play-card', 'end-turn'",
+        "Events from server: 'match-found', 'game-state', 'game-over', 'error', 'waiting-for-opponent'",
+        "When a player emits 'find-match', they enter a matchmaking queue",
+        "When two players are in the queue, pair them and emit 'match-found' to both with gameId",
+        "After class selection from both players, emit initial 'game-state' to both",
+        "On 'play-card' and 'end-turn', run through GameEngine and emit updated 'game-state' to both players",
+        "Each player only sees their own hand (opponent hand is hidden - send count only)",
+        "Socket.io client wrapper in packages/client with typed event handlers",
+        "Typecheck passes",
+        "Commit all changes: 'feat: US-005 - Socket.io real-time communication layer' and push to origin"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "Server is authoritative. Client sends actions, server validates and broadcasts state. Opponent's hand cards should be sent as count only, not actual card data."
+    },
+    {
+      "id": "US-006",
+      "title": "Landing page and matchmaking UI",
+      "description": "As a player, I want to open the game in my browser, click Play, and be matched with an opponent so I can start a game quickly without signing up.",
+      "acceptanceCriteria": [
+        "Landing page at '/' with game title 'Deck PVP', tagline, and a prominent 'Play Now' button",
+        "Clicking 'Play Now' connects to Socket.io and emits 'find-match'",
+        "Show 'Searching for opponent...' state with animation while in queue",
+        "On 'match-found', transition to class selection screen",
+        "Class selection shows 3 class cards (Warrior, Rogue, Mage) with name, description, and mechanic",
+        "Clicking a class emits 'select-class' and shows 'Waiting for opponent to choose...' if opponent hasn't selected",
+        "When both players have selected, transition to the game board",
+        "Dark theme with card-game aesthetic (dark background, glowing accents)",
+        "Responsive layout that works on desktop (mobile not required for MVP)",
+        "Typecheck passes",
+        "Commit all changes: 'feat: US-006 - Landing page and matchmaking UI' and push to origin"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "No authentication needed. Players are identified by socket ID. Keep the UI clean and atmospheric."
+    },
+    {
+      "id": "US-007",
+      "title": "Game board UI - PixiJS battlefield + React HUD",
+      "description": "As a player, I want to see the game board with a PixiJS-rendered battlefield showing both characters, and a React HUD overlay showing HP, energy, block, status effects, my hand of cards, and draw/discard pile counts.",
+      "acceptanceCriteria": [
+        "PixiJS canvas fills the game board area, rendering: battlefield background, player character sprite (left side), opponent character sprite (right side) - use simple geometric shapes or placeholder sprites per class (e.g., red square=warrior, green triangle=rogue, blue circle=mage)",
+        "React HUD overlays the canvas with: top bar (opponent info), bottom bar (player info + hand)",
+        "Top area: opponent's info bar (name, class, HP bar, block shield, energy pips, status effects: strength/poison)",
+        "Bottom area: current player's info bar (same layout) + hand of cards",
+        "Hand displays cards fanned out at bottom of screen, each showing: name, energy cost, description, type color (red=attack, blue=skill, yellow=power)",
+        "HP bars show current/max HP with numeric label",
+        "Energy displayed as filled/empty pips (e.g., 2/3)",
+        "Block shown as a shield icon with number when > 0",
+        "Draw pile count and discard pile count shown",
+        "Poison shown as green number, Strength as red number (when > 0)",
+        "Clear visual indicator of whose turn it is",
+        "End Turn button prominently placed, only enabled on your turn",
+        "Character sprites idle-animate subtly (gentle bob or pulse) on the PixiJS canvas",
+        "Typecheck passes",
+        "Commit all changes: 'feat: US-007 - Game board UI - PixiJS battlefield + React HUD' and push to origin"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": "Architecture: PixiJS canvas is the bottom layer rendering the battlefield scene (characters, background). React+Tailwind renders the HUD on top as an absolute-positioned overlay. Cards in hand are React components (hover to enlarge). Keep character sprites simple - colored shapes with a class icon are fine for MVP."
+    },
+    {
+      "id": "US-008",
+      "title": "Card playing interaction with PixiJS attack animations and particles",
+      "description": "As a player, I want to click a card in my hand to play it and see my character animate an attack on the opponent with particle effects, so the combat feels impactful.",
+      "acceptanceCriteria": [
+        "Clicking a playable card (enough energy, your turn) emits 'play-card' to server",
+        "Unplayable cards (not enough energy or not your turn) appear dimmed/grayed out",
+        "On Attack card play: player character sprite dashes toward opponent (quick lunge animation on PixiJS canvas), particle burst on impact (red sparks for warrior, green poison cloud for rogue, blue arcane burst for mage), then character returns to position",
+        "On Skill/Block card play: shield particle effect on the casting player's character (shimmering barrier)",
+        "On Power card play: buff particle effect (upward rising particles around caster)",
+        "Damage numbers float up from opponent's character on the canvas (red text, fades out)",
+        "Block numbers float up from player's character (blue text, fades out)",
+        "Card hover shows enlarged version with full description",
+        "Cards that cost 0 energy are highlighted with a subtle glow",
+        "Played card animates from hand toward the battlefield before disappearing",
+        "Particle effects use @pixi/particle-emitter with simple configs (keep it lightweight)",
+        "Typecheck passes",
+        "Commit all changes: 'feat: US-008 - Card playing interaction with PixiJS attack animations and particles' and push to origin"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": "This is where the game comes alive. The attack animation sequence: 1) card flies to battlefield, 2) character lunges toward opponent, 3) particle burst on hit + floating damage number, 4) character slides back. Keep each step ~200-300ms. Particle configs should be simple - just colored sparks/circles that emit and fade."
+    },
+    {
+      "id": "US-009",
+      "title": "Turn flow and status effect resolution",
+      "description": "As a player, I want turns to flow correctly - end my turn, see poison tick on my opponent, see their turn play out, then start my new turn with fresh energy and cards.",
+      "acceptanceCriteria": [
+        "Clicking 'End Turn' emits 'end-turn' to server",
+        "On turn end: remaining hand cards animate to discard, brief pause",
+        "On new turn start: energy refills (animated pips), new cards draw in from draw pile",
+        "When draw pile is empty, discard pile shuffles into draw pile automatically (server handles this)",
+        "Poison damage shows on the poisoned player at the start of their turn with visual feedback",
+        "During opponent's turn: player sees opponent's card plays resolve in real-time (card played from opponent's side, effects animate)",
+        "Opponent's cards are shown face-down during play (you see the back, then the effect, but not their full hand)",
+        "Turn number displayed on the board",
+        "Typecheck passes",
+        "Commit all changes: 'feat: US-009 - Turn flow and status effect resolution' and push to origin"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": "Pacing matters. Add small delays between effect resolution steps so players can follow the action. Server should emit state updates after each card play, not batched."
+    },
+    {
+      "id": "US-010",
+      "title": "Win/loss screen and rematch",
+      "description": "As a player, I want to see a clear victory or defeat screen when the game ends, with the option to play again.",
+      "acceptanceCriteria": [
+        "When 'game-over' event received, show overlay: 'Victory!' (green) or 'Defeat' (red)",
+        "Show final stats: damage dealt, cards played, turns taken",
+        "Two buttons: 'Play Again' (goes back to matchmaking) and 'Home' (goes to landing page)",
+        "'Play Again' disconnects from current game room and re-enters matchmaking queue",
+        "If opponent disconnects mid-game, show 'Opponent disconnected - You win!' and end the game",
+        "Typecheck passes",
+        "Commit all changes: 'feat: US-010 - Win/loss screen and rematch' and push to origin"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": "Handle the disconnect case gracefully. Track basic stats in the GameEngine for the end screen."
+    },
+    {
+      "id": "US-011",
+      "title": "Single-player vs AI mode",
+      "description": "As a player, I want to practice against an AI opponent so I can play even when no one else is online.",
+      "acceptanceCriteria": [
+        "Landing page has two buttons: 'Play PvP' and 'Play vs AI'",
+        "'Play vs AI' goes directly to class selection (AI randomly picks a class)",
+        "AI opponent uses simple strategy: play highest damage attack if opponent has no block, play block cards if HP < 50%, otherwise play random playable card, always end turn after playing all playable cards or running out of energy",
+        "AI runs server-side with a short delay between card plays (500ms) so player can follow",
+        "AI game uses the same GameEngine - no special rules",
+        "Win/loss screen works the same as PvP",
+        "Typecheck passes",
+        "Commit all changes: 'feat: US-011 - Single-player vs AI mode' and push to origin"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": "AI doesn't need to be smart - just functional enough to provide a basic challenge. Keep the AI logic simple and in the server."
+    },
+    {
+      "id": "US-012",
+      "title": "Polish: sound effects, card art placeholders, and loading states",
+      "description": "As a player, I want the game to feel polished with sound cues, visual card identity, and smooth loading transitions.",
+      "acceptanceCriteria": [
+        "Sound effects for: card play, damage dealt, block gained, turn start, victory, defeat (use free SFX or generate simple tones)",
+        "Each card has a placeholder icon/color based on its type and class (e.g., sword icon for warrior attacks, poison vial for rogue poison)",
+        "Loading spinner shown during matchmaking connection",
+        "Smooth page transitions between landing → class select → game board → results",
+        "Game board has a subtle background pattern or gradient (not plain white/black)",
+        "Volume toggle button in corner",
+        "Typecheck passes",
+        "Commit all changes: 'feat: US-012 - Polish: sound effects, card art placeholders, and loading states' and push to origin"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": "Last story - only do this after everything else works. Use CSS/SVG for card icons, no need for real art assets. Web Audio API for simple sound effects."
+    }
+  ]
+}
