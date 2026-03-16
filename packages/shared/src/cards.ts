@@ -56,10 +56,10 @@ export const WARRIOR_STARTER_DECK: Card[] = [
 const rogueShivStrike: Card = {
   id: 'rogue-shiv-strike',
   name: 'Shiv Strike',
-  description: 'Deal 3 damage.',
+  description: 'Deal 4 damage.',
   type: 'attack',
-  energyCost: 0,
-  effects: [{ type: 'damage', value: 3, target: 'opponent' }],
+  energyCost: 1,
+  effects: [{ type: 'damage', value: 4, target: 'opponent' }],
   class: 'rogue',
   rarity: 'common',
 };
