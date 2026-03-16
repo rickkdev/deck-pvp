@@ -184,7 +184,7 @@
         "Commit all changes: 'feat: US-007 - Game board UI - PixiJS battlefield + React HUD' and push to origin"
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "notes": "Architecture: PixiJS canvas is the bottom layer rendering the battlefield scene (characters, background). React+Tailwind renders the HUD on top as an absolute-positioned overlay. Cards in hand are React components (hover to enlarge). Keep character sprites simple - colored shapes with a class icon are fine for MVP."
     },
     {

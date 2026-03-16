@@ -11,6 +11,8 @@ Started: Mon Mar 16 2026
 - TypeScript strict mode is enabled via `tsconfig.base.json` at root
 - Root `pnpm dev` starts client and server concurrently with `--parallel -r`
 - Client on port 5173, server on port 3001
+- GameBoard uses layered architecture: PixiJS canvas (absolute, bottom) + React HUD overlay (absolute, top with pointer-events-none/auto)
+- PixiJS v8 `Application.init()` is async — use a `destroyed` flag to handle unmount-during-init cleanup
 - GameEngine is the authoritative game logic class in `packages/server/src/GameEngine.ts`
 - GameEngine stores games in a Map keyed by gameId — use `engine.getGame(id)` to retrieve
 - Server tests use vitest — run with `pnpm --filter @deck-pvp/server test`
@@ -111,4 +113,21 @@ Started: Mon Mar 16 2026
   - `connect()` must be called before `findMatch()` — socket is initialized with `autoConnect: false`
   - Tailwind v4 supports arbitrary animation delays via inline `style` prop (e.g., `animationDelay`)
   - Class selection uses `onWaitingForOpponent` event to show waiting state while opponent picks
+---
+
+## 2026-03-16 - US-007
+- Implemented full game board with PixiJS battlefield canvas + React HUD overlay
+- PixiJS canvas renders: dark battlefield background with grid lines, player character (left) and opponent character (right) as class-colored geometric shapes (square=warrior, triangle=rogue, circle=mage) with idle bob animation
+- React HUD overlay renders: opponent info bar (top), turn indicator (center), player info bar + hand of cards + End Turn button (bottom)
+- HP bars with color transitions (green/yellow/red), energy pips (filled/empty), block shield, strength/poison/orb indicators
+- Card hand: fanned layout with type-colored borders (red=attack, blue=skill, yellow=power), hover-to-enlarge, energy cost badge, playability dimming
+- End Turn button with enabled/disabled state based on turn
+- Draw pile and discard pile counts for both players
+- Files changed: packages/client/src/GameBoard.tsx (rewrite)
+- **Learnings for future iterations:**
+  - PixiJS v8 `Application.init()` is async — must handle cleanup if component unmounts before init completes (use `destroyed` flag)
+  - PixiJS v8 uses `new Ticker()` for custom animation loops separate from the app ticker
+  - `pointer-events-none` on HUD container + `pointer-events-auto` on interactive children allows clicks to pass through to canvas where needed
+  - Character shapes are drawn with `Graphics` — warrior=rect, rogue=triangle (moveTo/lineTo/closePath), mage=circle
+  - Cards use `flex-shrink-0` to prevent compression in the hand layout
 ---
