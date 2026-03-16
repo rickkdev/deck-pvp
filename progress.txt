@@ -1,3 +1,29 @@
 # DeckPVP Progress Log
 Started: Mon Mar 16 2026
+
+## Codebase Patterns
+- Use `pnpm --filter @deck-pvp/<package>` to run commands in a specific package
+- Shared package is referenced via `workspace:*` and imported as `@deck-pvp/shared`
+- Client uses Vite + React 19 + Tailwind v4 (`@tailwindcss/vite` plugin) + PixiJS v8
+- Server uses tsx for dev (watch mode), Express + Socket.io
+- TypeScript strict mode is enabled via `tsconfig.base.json` at root
+- Root `pnpm dev` starts client and server concurrently with `--parallel -r`
+- Client on port 5173, server on port 3001
+
+---
+
+## 2026-03-16 - US-001
+- Scaffolded pnpm workspace monorepo with packages/client, packages/server, packages/shared
+- Client: Vite + React 19 + TypeScript + Tailwind CSS v4 + PixiJS v8 + @pixi/react + @pixi/particle-emitter + socket.io-client
+- Server: Node.js + Express + TypeScript + Socket.io with health check at /health
+- Shared: TypeScript package exporting GAME_CONFIG constants
+- Landing page with PixiJS canvas rendering a purple rectangle to verify Pixi works
+- Root `pnpm dev` starts both client (5173) and server (3001) concurrently
+- All packages typecheck cleanly with strict mode
+- Files changed: package.json, pnpm-workspace.yaml, tsconfig.base.json, .gitignore, packages/shared/*, packages/server/*, packages/client/*
+- **Learnings for future iterations:**
+  - @pixi/react v8 requires React 19+ (peer dep)
+  - Tailwind v4 uses `@tailwindcss/vite` plugin and `@import "tailwindcss"` in CSS (no tailwind.config.js needed)
+  - PixiJS v8 uses `new Application()` then `app.init({...})` (async) pattern
+  - Server uses `tsx watch` for hot-reload during development
 ---

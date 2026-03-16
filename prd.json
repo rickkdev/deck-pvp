@@ -62,7 +62,7 @@
         "Commit all changes: 'feat: US-001 - Project scaffold with monorepo' and push to origin"
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": "Use pnpm workspaces. Client on 5173, server on 3001. Shared package is referenced by both. The architecture is: PixiJS canvas fills the game board area for rendering characters/effects, React+Tailwind renders the HUD overlay (cards in hand, HP bars, buttons) on top of the canvas."
     },
     {
