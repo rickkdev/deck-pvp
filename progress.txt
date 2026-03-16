@@ -2,6 +2,8 @@
 Started: Mon Mar 16 2026
 
 ## Codebase Patterns
+- Card definitions in `packages/shared/src/cards.ts` are shared references — clone cards (structuredClone or spread) when building player decks
+- `STARTER_DECKS[classId]` returns the starter deck array for any ClassId
 - Use `pnpm --filter @deck-pvp/<package>` to run commands in a specific package
 - Shared package is referenced via `workspace:*` and imported as `@deck-pvp/shared`
 - Client uses Vite + React 19 + Tailwind v4 (`@tailwindcss/vite` plugin) + PixiJS v8
@@ -38,4 +40,18 @@ Started: Mon Mar 16 2026
   - Shared types are exported via `export * from './types.js'` (`.js` extension needed for ESM resolution with bundler moduleResolution)
   - GameState.players is a tuple `[PlayerState, PlayerState]` for exactly 2 players
   - Card.class uses `ClassId` type ('warrior' | 'rogue' | 'mage') matching the gameDesign.classes in PRD
+---
+
+## 2026-03-16 - US-003
+- Defined card data for all 3 starter classes in `packages/shared/src/cards.ts`
+- Warrior: 5x Strike (1e, 6 dmg), 4x Defend (1e, 5 block), 1x Bash (2e, 8 dmg + 2 str)
+- Rogue: 5x Shiv Strike (0e, 3 dmg), 3x Defend (1e, 5 block), 1x Poison Blade (1e, 3 dmg + 3 poison), 1x Dodge (1e, 7 block + draw 1)
+- Mage: 4x Arcane Bolt (1e, 5 dmg), 3x Barrier (1e, 6 block), 1x Channel Lightning (1e, channel lightning orb), 1x Frost Shield (1e, channel frost orb + 3 block), 1x Surge (0e, +1 energy)
+- Added `channel` EffectType and `OrbType` to shared types for Mage orb mechanic
+- Exported `STARTER_DECKS` record and individual deck arrays (`WARRIOR_STARTER_DECK`, etc.)
+- Files changed: packages/shared/src/types.ts, packages/shared/src/cards.ts (new), packages/shared/src/index.ts
+- **Learnings for future iterations:**
+  - Card definitions reference card objects by variable, so duplicate cards in a deck point to the same object — future GameEngine should clone cards when building a player's deck
+  - `STARTER_DECKS` is keyed by ClassId string for easy lookup: `STARTER_DECKS[classId]`
+  - Mage orb mechanic uses `orbType` optional field on Effect — only present when `type: 'channel'`
 ---

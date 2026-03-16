@@ -96,7 +96,7 @@
         "Commit all changes: 'feat: US-003 - Card definitions for 3 starter classes' and push to origin"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "Keep cards simple for MVP. Balance is not critical yet - just make each class feel different. Mage orb mechanic can be simplified to: lightning orb does 3 damage at end of turn, frost orb gives 3 block at start of turn."
     },
     {

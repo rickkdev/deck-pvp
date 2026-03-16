@@ -1,5 +1,6 @@
 // Shared types and constants for DeckPVP
 export * from './types.js';
+export * from './cards.js';
 
 export const GAME_CONFIG = {
   HP: 70,

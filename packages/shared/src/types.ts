@@ -2,7 +2,9 @@
 
 export type CardType = 'attack' | 'skill' | 'power';
 
-export type EffectType = 'damage' | 'block' | 'strength' | 'poison' | 'draw' | 'energy';
+export type EffectType = 'damage' | 'block' | 'strength' | 'poison' | 'draw' | 'energy' | 'channel';
+
+export type OrbType = 'lightning' | 'frost';
 
 export type EffectTarget = 'self' | 'opponent';
 
@@ -14,6 +16,7 @@ export interface Effect {
   type: EffectType;
   value: number;
   target: EffectTarget;
+  orbType?: OrbType;
 }
 
 export interface Card {
