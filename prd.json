@@ -159,7 +159,7 @@
         "Commit all changes: 'feat: US-006 - Landing page and matchmaking UI' and push to origin"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": "No authentication needed. Players are identified by socket ID. Keep the UI clean and atmospheric."
     },
     {

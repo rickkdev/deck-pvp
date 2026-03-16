@@ -97,3 +97,18 @@ Started: Mon Mar 16 2026
   - `playerGames` Map tracks socket→game mapping for card play/turn events and disconnect handling
   - Disconnect during active game awards win to remaining player
 ---
+
+## 2026-03-16 - US-006
+- Implemented landing page with dark card-game aesthetic, "Play Now" button, and matchmaking spinner
+- Class selection screen with 3 class cards (Warrior, Rogue, Mage) showing name, description, mechanic
+- State-based routing in App.tsx: landing → class-select → game
+- Socket event wiring: connect on Play Now, find-match, match-found transitions, class selection with waiting state, game-state transitions to board
+- Placeholder GameBoard component for US-007
+- Files changed: packages/client/src/App.tsx (rewrite), packages/client/src/LandingPage.tsx (new), packages/client/src/ClassSelection.tsx (new), packages/client/src/GameBoard.tsx (new)
+- **Learnings for future iterations:**
+  - No react-router needed — simple state-based routing with `useState<Screen>` works well for this flow
+  - Socket event listeners should be set up in a single `useEffect` with cleanup (unsubscribe pattern from socket.ts)
+  - `connect()` must be called before `findMatch()` — socket is initialized with `autoConnect: false`
+  - Tailwind v4 supports arbitrary animation delays via inline `style` prop (e.g., `animationDelay`)
+  - Class selection uses `onWaitingForOpponent` event to show waiting state while opponent picks
+---
