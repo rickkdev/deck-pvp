@@ -79,7 +79,7 @@
         "Commit all changes: 'feat: US-002 - Shared card and game type definitions' and push to origin"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "These types are the contract between client and server. Keep them clean and well-documented."
     },
     {

@@ -27,3 +27,15 @@ Started: Mon Mar 16 2026
   - PixiJS v8 uses `new Application()` then `app.init({...})` (async) pattern
   - Server uses `tsx watch` for hot-reload during development
 ---
+
+## 2026-03-16 - US-002
+- Defined shared TypeScript types: Card, Effect, PlayerState, GameState, TurnPhase, and related union types
+- Created `packages/shared/src/types.ts` with all type definitions
+- Updated `packages/shared/src/index.ts` to re-export types
+- All packages typecheck cleanly
+- Files changed: packages/shared/src/types.ts (new), packages/shared/src/index.ts
+- **Learnings for future iterations:**
+  - Shared types are exported via `export * from './types.js'` (`.js` extension needed for ESM resolution with bundler moduleResolution)
+  - GameState.players is a tuple `[PlayerState, PlayerState]` for exactly 2 players
+  - Card.class uses `ClassId` type ('warrior' | 'rogue' | 'mage') matching the gameDesign.classes in PRD
+---
